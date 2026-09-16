@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pronunciation Battle - Polyglot Communication Club</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            electric: '#004BFF',
+            purpleAcc: '#8A2BE2',
+            neonPink: '#FF00EF',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Optional Firebase Compatibility Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-[#020718] text-slate-100 min-h-screen flex flex-col justify-between selection:bg-[#FF00EF] selection:text-white">
+
+  <!-- Top Navigation Header -->
+  <header class="border-b border-[#8A2BE2]/40 bg-[#040c24]/90 backdrop-blur-md sticky top-0 z-40 shadow-lg shadow-[#004BFF]/10">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <!-- Polyglot Infinity Logo Badge -->
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#FF00EF] via-[#8A2BE2] to-[#004BFF] p-0.5 shadow-lg shadow-[#FF00EF]/40 flex items-center justify-center">
+          <div class="w-full h-full bg-[#040c24] rounded-[10px] flex items-center justify-center">
+            <i class="fas fa-infinity text-xl text-transparent bg-clip-text bg-gradient-to-tr from-[#FF00EF] to-[#8A2BE2]"></i>
+          </div>
+        </div>
+        <div>
+          <h1 class="font-extrabold text-lg text-slate-100 leading-none flex items-center gap-1.5">
+            Pronunciation Battle
+          </h1>
+          <p class="text-[10px] text-[#FF00EF] font-bold tracking-wide uppercase mt-0.5">Polyglot Communication Club</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Neon Pink Host Dashboard Button -->
+        <button type="button" id="btnToggleHostView" onclick="window.app ? window.app.openHostModal() : alert('App initializing...');" class="btn-neon-pink font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-2 cursor-pointer">
+          <i class="fas fa-desktop text-white"></i> Host Dashboard
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-4xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center">
+
+    <!-- 1. TEAM REGISTRATION VIEW -->
+    <section id="viewRegistration" class="w-full">
+      <div class="glass-panel rounded-3xl p-6 md:p-10 border border-[#8A2BE2]/50 max-w-xl mx-auto shadow-2xl relative overflow-hidden">
+        <div class="absolute -top-24 -right-24 w-48 h-48 bg-[#004BFF]/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <!-- Hero Branding Header -->
+        <div class="text-center mb-8">
+          <div class="flex justify-center mb-3">
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-[#FF00EF] via-[#8A2BE2] to-[#004BFF] p-1 shadow-2xl shadow-[#FF00EF]/40 flex items-center justify-center">
+              <div class="w-full h-full bg-[#030a21] rounded-xl flex flex-col items-center justify-center">
+                <i class="fas fa-infinity text-3xl text-transparent bg-clip-text bg-gradient-to-r from-[#FF00EF] via-purple-300 to-[#8A2BE2]"></i>
+                <span class="text-[8px] font-black tracking-widest text-[#FF00EF] uppercase mt-0.5">POLYGLOT</span>
+              </div>
+            </div>
+          </div>
+          <span class="inline-block px-3 py-1 bg-[#8A2BE2]/20 text-purple-300 border border-[#8A2BE2]/40 rounded-full text-xs font-semibold uppercase tracking-wider mb-2">
+            Team Registration
+          </span>
+          <h2 class="text-3xl font-black text-slate-100 tracking-tight">Enter Competition</h2>
+          <p class="text-sm text-slate-400 mt-2">Enter your competition code, team name, and member names to join the arena.</p>
+        </div>
+
+        <div id="regErrorMessage" class="hidden mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium leading-relaxed">
+        </div>
+
+        <form id="formRegistration" onsubmit="event.preventDefault(); if(window.app){ window.app.handleRegistration(event); } return false;" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-purple-300 mb-1">Competition Code</label>
+            <div class="relative">
+              <input type="text" id="inputCompCode" value="POLYGLOT2026" required
+                class="w-full bg-[#030a21] border border-[#8A2BE2]/40 focus:border-[#FF00EF] rounded-xl px-4 py-3 text-[#FF00EF] font-mono text-base font-bold uppercase tracking-wider focus:outline-none transition"
+                placeholder="e.g. POLYGLOT2026">
+              <span class="absolute right-3 top-3 text-xs text-purple-300 bg-[#0c1840] px-2.5 py-1 rounded-md border border-[#8A2BE2]/40">Verified Code</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-purple-300 mb-1">Team Name</label>
+            <input type="text" id="inputTeamName" required
+              class="w-full bg-[#030a21] border border-[#8A2BE2]/40 focus:border-[#FF00EF] rounded-xl px-4 py-3 text-slate-100 text-sm font-medium focus:outline-none transition"
+              placeholder="e.g. Vocal Virtuosos">
+          </div>
+
+          <div class="pt-2">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-purple-300 mb-2">Team Members (3 Participants)</label>
+            <div class="space-y-2.5">
+              <div class="relative">
+                <span class="absolute left-3 top-3 text-xs font-bold text-[#FF00EF]">#1</span>
+                <input type="text" id="inputMember1" required
+                  class="w-full bg-[#030a21] border border-[#8A2BE2]/40 focus:border-[#FF00EF] rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-100 focus:outline-none transition"
+                  placeholder="Member 1 Full Name">
+              </div>
+              <div class="relative">
+                <span class="absolute left-3 top-3 text-xs font-bold text-[#FF00EF]">#2</span>
+                <input type="text" id="inputMember2" required
+                  class="w-full bg-[#030a21] border border-[#8A2BE2]/40 focus:border-[#FF00EF] rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-100 focus:outline-none transition"
+                  placeholder="Member 2 Full Name">
+              </div>
+              <div class="relative">
+                <span class="absolute left-3 top-3 text-xs font-bold text-[#FF00EF]">#3</span>
+                <input type="text" id="inputMember3" required
+                  class="w-full bg-[#030a21] border border-[#8A2BE2]/40 focus:border-[#FF00EF] rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-100 focus:outline-none transition"
+                  placeholder="Member 3 Full Name">
+              </div>
+            </div>
+          </div>
+
+          <!-- Neon Pink Registration Button -->
+          <button type="submit" id="btnRegisterTeam"
+            class="w-full mt-6 btn-neon-pink font-extrabold py-3.5 px-6 rounded-xl flex items-center justify-center text-sm cursor-pointer">
+            <i class="fas fa-rocket mr-2"></i> Register Team & Start Battle
+          </button>
+        </form>
+      </div>
+    </section>
+
+
+    <!-- 2. BATTLE ARENA VIEW (5 ROUNDS) -->
+    <section id="viewBattle" class="w-full hidden space-y-6">
+      
+      <!-- Battle Info Header -->
+      <div class="glass-panel rounded-2xl p-4 md:p-6 border border-[#8A2BE2]/40 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#FF00EF] to-[#8A2BE2] p-0.5 shadow-md flex items-center justify-center">
+            <div class="w-full h-full bg-[#030a21] rounded-[10px] flex items-center justify-center">
+              <i class="fas fa-infinity text-lg text-[#FF00EF]"></i>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 id="txtBattleTeamName" class="text-xl font-black text-[#FF00EF]">Team Name</h3>
+              <span id="badgeDifficulty" class="badge-easy px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider">Easy</span>
+            </div>
+            <p class="text-xs text-slate-300 mt-0.5">
+              Current Speaker: <span id="txtCurrentSpeaker" class="text-white font-bold">Member 1</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4 text-right">
+          <div class="bg-[#030a21] border border-[#8A2BE2]/50 rounded-xl px-4 py-2">
+            <p class="text-[10px] text-purple-300 uppercase font-semibold">Round Progress</p>
+            <p id="txtCurrentRoundNum" class="text-lg font-black text-slate-100 font-mono">1 / 5</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Target Sentence Card -->
+      <div class="glass-panel-glow rounded-3xl p-6 md:p-8 text-center space-y-4 relative">
+        <span class="text-xs font-bold text-[#FF00EF] uppercase tracking-widest bg-[#FF00EF]/10 px-3 py-1 rounded-full border border-[#FF00EF]/30">
+          Target Sentence
+        </span>
+
+        <h2 id="txtTargetSentence" class="text-2xl md:text-3xl font-extrabold text-slate-100 leading-snug max-w-2xl mx-auto">
+          "The sun shines bright over the blue ocean."
+        </h2>
+
+        <p id="txtPhoneticTip" class="text-xs text-purple-200 font-mono bg-[#030a21]/90 inline-block px-4 py-2 rounded-xl border border-[#8A2BE2]/40">
+          💡 Phonetic Tip: Focus on clear vowel sounds and the 'sh' in shines.
+        </p>
+
+        <!-- Audio Recording Area with Neon Pink Mic Button -->
+        <div class="pt-6 flex flex-col items-center justify-center space-y-4">
+          <button type="button" id="btnMicRecord" onclick="if(window.app) window.app.toggleRecording();" class="w-20 h-20 rounded-full btn-neon-pink text-3xl font-bold flex items-center justify-center shadow-2xl cursor-pointer">
+            <i id="micIcon" class="fas fa-microphone text-white"></i>
+          </button>
+
+          <p id="micStatusText" class="text-xs font-medium text-purple-200">
+            Tap Microphone to Speak
+          </p>
+
+          <!-- Audio Wave Animation -->
+          <div id="audioWaveVisualizer" class="audio-wave hidden">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+
+        <!-- Recognized Speech Box -->
+        <div class="mt-6 bg-[#030a21]/90 rounded-2xl p-4 border border-[#8A2BE2]/40 max-w-xl mx-auto text-left">
+          <p class="text-[10px] uppercase font-bold text-purple-300 mb-1">Recognized Speech</p>
+          <p id="txtLiveTranscript" class="text-slate-400 italic font-mono text-sm leading-relaxed">
+            Press the microphone button and speak clearly into your device...
+          </p>
+        </div>
+
+        <!-- Evaluation Feedback Box -->
+        <div id="boxScoreFeedback" class="hidden mt-6 bg-[#030a21]/95 border border-[#8A2BE2]/50 rounded-2xl p-5 max-w-xl mx-auto space-y-4">
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-[#0b163d] rounded-xl p-3 border border-[#8A2BE2]/30">
+              <p class="text-[10px] text-slate-400 uppercase font-semibold">Speech Accuracy</p>
+              <p id="txtAccuracyScore" class="text-xl font-bold text-emerald-400 font-mono">0%</p>
+            </div>
+            <div class="bg-[#0b163d] rounded-xl p-3 border border-[#8A2BE2]/30">
+              <p class="text-[10px] text-slate-400 uppercase font-semibold">Retry Penalty</p>
+              <p id="txtPenaltyScore" class="text-xl font-bold text-[#FF00EF] font-mono">-0 pts</p>
+            </div>
+            <div class="bg-[#0b163d] rounded-xl p-3 border border-yellow-500/40">
+              <p class="text-[10px] text-yellow-400 uppercase font-semibold">Round Score</p>
+              <p id="txtFinalRoundScore" class="text-xl font-extrabold text-yellow-300 font-mono">0 pts</p>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-[#8A2BE2]/30">
+            <span id="txtRetryCount" class="font-mono">Attempt 1 of 3</span>
+            <div class="flex gap-2">
+              <button type="button" id="btnRetrySpeech" onclick="if(window.app) window.app.handleRetryAttempt();" class="hidden bg-[#8A2BE2]/30 hover:bg-[#8A2BE2]/50 text-white px-3 py-1.5 rounded-lg font-semibold transition text-xs border border-[#8A2BE2]/50 cursor-pointer">
+                <i class="fas fa-redo mr-1"></i> Retry Recording
+              </button>
+              <button type="button" id="btnSubmitRound" onclick="if(window.app) window.app.submitRound();" class="hidden btn-neon-pink font-bold px-4 py-1.5 rounded-lg transition text-xs cursor-pointer">
+                Next Round <i class="fas fa-arrow-right ml-1"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- 3. RESULTS & DEVICE LOCK VIEW -->
+    <section id="viewResult" class="w-full hidden space-y-6">
+      <div class="glass-panel-glow rounded-3xl p-6 md:p-10 border border-[#8A2BE2]/50 text-center max-w-2xl mx-auto shadow-2xl relative">
+        <div class="flex justify-center mb-4">
+          <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-[#FF00EF] to-[#8A2BE2] p-1 shadow-2xl shadow-[#FF00EF]/40 flex items-center justify-center">
+            <div class="w-full h-full bg-[#030a21] rounded-xl flex items-center justify-center text-amber-400 text-3xl">
+              <i class="fas fa-trophy"></i>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="text-3xl font-black text-slate-100">Battle Complete!</h2>
+        <p class="text-sm text-slate-400 mt-1">Official Results for <span id="txtResultTeamName" class="text-[#FF00EF] font-bold">Team Name</span></p>
+
+        <!-- Final Score Showcase (Vibrant Yellow) -->
+        <div class="my-6 bg-[#030a21]/95 border border-yellow-500/50 rounded-2xl p-6 max-w-md mx-auto shadow-xl shadow-yellow-500/20">
+          <p class="text-xs uppercase tracking-widest font-bold text-yellow-400">Final Average Score</p>
+          <h1 id="txtResultFinalScore" class="text-6xl font-black text-yellow-300 final-score-yellow mt-1 font-mono">
+            0
+          </h1>
+          <p class="text-xs text-slate-400 mt-1">Composite Score out of 100</p>
+        </div>
+
+        <!-- Metrics Breakdown Grid -->
+        <div class="grid grid-cols-3 gap-3 max-w-md mx-auto mb-6 text-center">
+          <div class="bg-[#030a21]/80 border border-[#8A2BE2]/30 rounded-xl p-3">
+            <p class="text-[10px] text-slate-400 uppercase font-semibold">Avg Accuracy</p>
+            <p id="txtResultAvgAccuracy" class="text-lg font-bold text-emerald-400 font-mono">0%</p>
+          </div>
+          <div class="bg-[#030a21]/80 border border-[#8A2BE2]/30 rounded-xl p-3">
+            <p class="text-[10px] text-slate-400 uppercase font-semibold">Total Retries</p>
+            <p id="txtResultTotalRetries" class="text-lg font-bold text-slate-200 font-mono">0</p>
+          </div>
+          <div class="bg-[#030a21]/80 border border-[#8A2BE2]/30 rounded-xl p-3">
+            <p class="text-[10px] text-slate-400 uppercase font-semibold">Penalty Points</p>
+            <p id="txtResultTotalPenalties" class="text-lg font-bold text-[#FF00EF] font-mono">-0 pts</p>
+          </div>
+        </div>
+
+        <!-- Round-by-Round Breakdown -->
+        <div class="text-left space-y-3 max-w-md mx-auto">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-purple-300">Round Performance Summary</h4>
+          <div id="containerRoundsBreakdown" class="space-y-2">
+          </div>
+        </div>
+
+        <!-- Device Locking Info Alert -->
+        <div class="mt-8 p-4 bg-[#030a21]/80 border border-[#8A2BE2]/40 rounded-2xl text-xs text-slate-400 flex items-center justify-between gap-4">
+          <div class="flex items-center gap-2">
+            <i class="fas fa-lock text-[#FF00EF] text-base"></i>
+            <span class="text-left">Device Locked: Results saved to database and local storage.</span>
+          </div>
+          <button type="button" id="btnResetDeviceLock" onclick="if(window.app) window.app.handleAdminReset();" class="btn-neon-pink px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer">
+            Admin Reset
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 4. HOST LIVE MONITORING DASHBOARD MODAL -->
+  <div id="viewHostModal" class="fixed inset-0 bg-[#020718]/90 backdrop-blur-md z-50 overflow-y-auto p-4 hidden">
+    <div class="max-w-6xl mx-auto my-6 relative">
+      <button type="button" id="btnCloseHostModal" onclick="if(window.app) window.app.closeHostModal();" class="absolute right-4 top-4 z-10 w-8 h-8 rounded-full btn-neon-pink flex items-center justify-center transition cursor-pointer">
+        <i class="fas fa-times"></i>
+      </button>
+      <div id="hostDashboardContainer"></div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="border-t border-[#8A2BE2]/30 py-4 text-center text-xs text-purple-300">
+    <p>© 2026 Polyglot Communication Club • Pronunciation Battle Engine</p>
+  </footer>
+
+  <!-- Self-Contained Standalone Application Logic -->
+  <script src="js/app-bundle.js"></script>
+</body>
+</html>
