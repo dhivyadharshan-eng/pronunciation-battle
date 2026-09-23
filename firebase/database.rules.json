@@ -1,0 +1,27 @@
+{
+  "rules": {
+    "hosts": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+    "competitions": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('hosts').child(auth.uid).val() === true",
+        "active": { ".write": "auth != null && root.child('hosts').child(auth.uid).val() === true" },
+        "teams": {
+          "$teamId": {
+            ".read": "auth != null",
+            ".write": "auth != null && (root.child('hosts').child(auth.uid).val() === true || (!data.exists() && newData.child('ownerUid').val() === auth.uid && newData.child('teamId').val() === $teamId) || (data.exists() && data.child('ownerUid').val() === auth.uid && newData.child('ownerUid').val() === data.child('ownerUid').val() && newData.child('teamId').val() === data.child('teamId').val()))",
+            "finalScore": { ".validate": "root.child('hosts').child(auth.uid).val() === true || (!data.exists() && newData.val() === null) || newData.val() === data.val()" },
+            "status": { ".validate": "newData.val() in ['registered','in-battle','completed']" },
+            "teamId": { ".validate": "newData.val() === $teamId" },
+            "ownerUid": { ".validate": "newData.val() === (data.exists() ? data.val() : auth.uid)" }
+          }
+        }
+      }
+    }
+  }
+}
