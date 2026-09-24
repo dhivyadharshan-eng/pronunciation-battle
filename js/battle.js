@@ -1,3 +1,8 @@
+// ============================================================
+// POLYGLOT PRONUNCIATION BATTLE
+// battle.js
+// ============================================================
+
 import {
   database,
   ref,
@@ -19,13 +24,11 @@ import {
 // ============================================================
 
 const TOTAL_ROUNDS = 5;
-
-// Initial speech + Retry 1 + Retry 2
 const MAX_RETRIES = 2;
 
 
 // ============================================================
-// LOAD BATTLE STATE
+// LOAD STATE
 // ============================================================
 
 let state = loadState();
@@ -43,7 +46,7 @@ if (!state || state.completed) {
 
 
 // ============================================================
-// SPEECH VARIABLES
+// SPEECH STATE
 // ============================================================
 
 let recognition = null;
@@ -51,6 +54,8 @@ let recognition = null;
 let listening = false;
 
 let busy = false;
+
+let processingResult = false;
 
 
 // ============================================================
@@ -72,7 +77,6 @@ const supportsSpeech =
 // INITIALIZE STATE
 // ============================================================
 
-// Create sentence set only once
 if (!Array.isArray(state.sentenceSet)) {
 
   state.sentenceSet =
@@ -80,33 +84,23 @@ if (!Array.isArray(state.sentenceSet)) {
 }
 
 
-// Make sure rounds exists
 if (!Array.isArray(state.rounds)) {
 
   state.rounds = [];
 }
 
 
-// Make sure currentRound exists
-if (
-  typeof state.currentRound !== "number"
-) {
+if (typeof state.currentRound !== "number") {
 
   state.currentRound = 0;
 }
 
 
-// IMPORTANT
-// Do not automatically advance after refresh
-state.pendingAdvance = false;
-
-
-// Save restored state
 saveState(state);
 
 
 // ============================================================
-// CURRENT ROUND DATA
+// CURRENT ROUND
 // ============================================================
 
 function currentRoundData() {
@@ -141,7 +135,7 @@ function currentSpeaker() {
 
 
 // ============================================================
-// ENSURE CURRENT ROUND EXISTS
+// CREATE ROUND DATA
 // ============================================================
 
 function ensureRound() {
@@ -171,18 +165,32 @@ function ensureRound() {
 
 
 // ============================================================
-// RENDER BATTLE UI
+// CHECK RESULT
+// ============================================================
+
+function hasResult(round) {
+
+  return (
+    round &&
+    round.score !== null &&
+    round.score !== undefined
+  );
+}
+
+
+// ============================================================
+// RENDER UI
 // ============================================================
 
 function render() {
 
-  // Safety
   if (
     state.currentRound >=
     TOTAL_ROUNDS
   ) {
 
     if (!state.completed) {
+
       finishBattle();
     }
 
@@ -202,9 +210,8 @@ function render() {
     r?.retries || 0;
 
 
-  const hasResult =
-    r?.score !== null &&
-    r?.score !== undefined;
+  const resultExists =
+    hasResult(r);
 
 
   // ==========================================================
@@ -230,7 +237,7 @@ function render() {
 
 
   // ==========================================================
-  // PROGRESS BAR
+  // PROGRESS
   // ==========================================================
 
   if ($("progressBar")) {
@@ -321,9 +328,28 @@ function render() {
   if ($("score")) {
 
     $("score").textContent =
-      hasResult
+      resultExists
         ? `${r.score}%`
         : "—";
+  }
+
+
+  // ==========================================================
+  // RETRY BUTTON TEXT
+  // ==========================================================
+
+  if ($("retryBtn")) {
+
+    if (retries < MAX_RETRIES) {
+
+      $("retryBtn").textContent =
+        `Retry ${retries + 1}/${MAX_RETRIES}`;
+
+    } else {
+
+      $("retryBtn").textContent =
+        `Retry ${MAX_RETRIES}/${MAX_RETRIES}`;
+    }
   }
 
 
@@ -332,13 +358,19 @@ function render() {
   // ==========================================================
 
   /*
-    Microphone is enabled when:
+    Speech is allowed when:
 
-    1. No result exists
-    2. Speech recognition is supported
-    3. We are not already listening
-    4. We are not busy
-    5. Retry count has not exceeded 2
+    - No result currently exists
+    - Not listening
+    - Not busy
+    - Speech recognition supported
+    - Retry count has not exceeded 2
+
+    This allows:
+
+      retries = 0 → initial speech
+      retries = 1 → Retry 1 speech
+      retries = 2 → Retry 2 speech
   */
 
   if ($("micBtn")) {
@@ -346,8 +378,9 @@ function render() {
     $("micBtn").disabled =
       busy ||
       listening ||
+      processingResult ||
       !supportsSpeech ||
-      hasResult ||
+      resultExists ||
       retries > MAX_RETRIES;
   }
 
@@ -357,23 +390,10 @@ function render() {
   // ==========================================================
 
   /*
-    Retry is enabled only when:
+    Retry is allowed:
 
-    - A result exists
-    - We are not listening
-    - We are not busy
-    - Retry count is below 2
-
-    Therefore:
-
-    Result after initial speech
-       → Retry enabled
-
-    Result after Retry 1
-       → Retry enabled
-
-    Result after Retry 2
-       → Retry disabled
+      result exists
+      AND retries < 2
   */
 
   if ($("retryBtn")) {
@@ -381,7 +401,8 @@ function render() {
     $("retryBtn").disabled =
       busy ||
       listening ||
-      !hasResult ||
+      processingResult ||
+      !resultExists ||
       retries >= MAX_RETRIES ||
       !supportsSpeech;
   }
@@ -392,10 +413,12 @@ function render() {
   // ==========================================================
 
   /*
-    Continue is enabled whenever
-    the current sentence has a result.
+    Continue becomes available
+    after every completed speech result.
 
-    This includes the final Retry 2 result.
+    Including:
+
+      Retry 2/2 → result → Continue
   */
 
   if ($("nextBtn")) {
@@ -403,7 +426,8 @@ function render() {
     $("nextBtn").disabled =
       busy ||
       listening ||
-      !hasResult;
+      processingResult ||
+      !resultExists;
   }
 }
 
@@ -443,14 +467,11 @@ async function sync(patch = {}) {
 
         ...patch,
 
-
         currentRound:
           state.currentRound,
 
-
         retriesUsed:
           totalRetries,
-
 
         status:
           state.completed
@@ -458,7 +479,6 @@ async function sync(patch = {}) {
             : "in-battle"
 
       }
-
     );
 
   } catch (error) {
@@ -482,71 +502,78 @@ async function sync(patch = {}) {
 
 
 // ============================================================
-// SPEECH RECOGNITION SETUP
+// RESET MICROPHONE UI
 // ============================================================
 
-function setupSpeech() {
+function resetMicUI() {
 
-  if (!supportsSpeech) {
-
-    if ($("battleMsg")) {
-
-      $("battleMsg").textContent =
-        "Speech recognition is not supported in this browser. Please use Chrome.";
-
-      $("battleMsg").className =
-        "status error";
-    }
-
-
-    if ($("micBtn")) {
-
-      $("micBtn").disabled = true;
-    }
-
-
+  if (!$("micBtn")) {
     return;
   }
 
+
+  $("micBtn").classList.remove(
+    "listening"
+  );
+
+
+  $("micBtn").innerHTML =
+    "🎙️<small>Tap to speak</small>";
+}
+
+
+// ============================================================
+// CREATE NEW SPEECH RECOGNITION
+// ============================================================
+
+function createRecognition() {
 
   const SpeechRecognition =
     window.SpeechRecognition ||
     window.webkitSpeechRecognition;
 
 
-  recognition =
+  if (!SpeechRecognition) {
+
+    return null;
+  }
+
+
+  const instance =
     new SpeechRecognition();
 
 
   // ==========================================================
-  // SPEECH SETTINGS
+  // SETTINGS
   // ==========================================================
 
-  recognition.lang =
+  instance.lang =
     "en-US";
 
 
-  recognition.interimResults =
+  instance.interimResults =
     false;
 
 
-  recognition.continuous =
+  instance.continuous =
     false;
 
 
-  recognition.maxAlternatives =
+  instance.maxAlternatives =
     1;
 
 
   // ==========================================================
-  // SPEECH START
+  // START
   // ==========================================================
 
-  recognition.onstart = () => {
+  instance.onstart = () => {
 
     listening = true;
 
     busy = true;
+
+    processingResult = false;
 
 
     if ($("micBtn")) {
@@ -563,8 +590,21 @@ function setupSpeech() {
 
     if ($("battleMsg")) {
 
-      $("battleMsg").textContent =
-        "Listening... Speak the complete sentence.";
+      const r =
+        ensureRound();
+
+
+      if (r.retries === 0) {
+
+        $("battleMsg").textContent =
+          "Listening... Speak the complete sentence.";
+
+      } else {
+
+        $("battleMsg").textContent =
+          `Retry ${r.retries}/2. Speak the sentence again.`;
+      }
+
 
       $("battleMsg").className =
         "status";
@@ -576,10 +616,10 @@ function setupSpeech() {
 
 
   // ==========================================================
-  // SPEECH RESULT
+  // RESULT
   // ==========================================================
 
-  recognition.onresult = (event) => {
+  instance.onresult = (event) => {
 
     let finalText = "";
 
@@ -605,36 +645,47 @@ function setupSpeech() {
       finalText.trim();
 
 
-    if (finalText) {
+    if (!finalText) {
 
-      handleSpeech(
-        finalText
-      );
+      return;
     }
+
+
+    /*
+      Prevent onend from resetting
+      the state while the result
+      is being processed.
+    */
+
+    processingResult = true;
+
+
+    handleSpeech(
+      finalText
+    );
   };
 
 
   // ==========================================================
-  // SPEECH ERROR
+  // ERROR
   // ==========================================================
 
-  recognition.onerror = (event) => {
+  instance.onerror = (event) => {
+
+    console.warn(
+      "Speech recognition error:",
+      event.error
+    );
+
 
     listening = false;
 
     busy = false;
 
-
-    if ($("micBtn")) {
-
-      $("micBtn").classList.remove(
-        "listening"
-      );
+    processingResult = false;
 
 
-      $("micBtn").innerHTML =
-        "🎙️<small>Tap to speak</small>";
-    }
+    resetMicUI();
 
 
     const messages = {
@@ -642,22 +693,20 @@ function setupSpeech() {
       "not-allowed":
         "Microphone permission was denied. Please allow microphone access.",
 
-
       "audio-capture":
         "No microphone was found. Check your microphone.",
-
 
       "network":
         "Speech recognition needs an internet connection.",
 
-
       "no-speech":
         "No speech was detected. Please speak the complete sentence.",
 
-
       "aborted":
-        "Speech recognition was stopped. Please try again."
+        "Speech recognition was stopped. Please try again.",
 
+      "service-not-allowed":
+        "Speech recognition service is not available."
     };
 
 
@@ -666,7 +715,6 @@ function setupSpeech() {
       $("battleMsg").textContent =
         messages[event.error] ||
         "Speech recognition failed. Please try again.";
-
 
       $("battleMsg").className =
         "status error";
@@ -678,35 +726,155 @@ function setupSpeech() {
 
 
   // ==========================================================
-  // SPEECH END
+  // END
   // ==========================================================
 
-  recognition.onend = () => {
+  instance.onend = () => {
+
+    listening = false;
+
+
+    /*
+      If a result is currently being processed,
+      handleSpeech() will reset busy itself.
+    */
+
+    if (!processingResult) {
+
+      busy = false;
+    }
+
+
+    resetMicUI();
+
+
+    /*
+      Do not change the round here.
+      Do not automatically retry.
+      Do not automatically continue.
+    */
+
+    render();
+  };
+
+
+  return instance;
+}
+
+
+// ============================================================
+// START SPEECH
+// ============================================================
+
+function startSpeech() {
+
+  // Already busy
+  if (
+    listening ||
+    busy ||
+    processingResult
+  ) {
+
+    return;
+  }
+
+
+  const r =
+    ensureRound();
+
+
+  // ==========================================================
+  // ALLOW INITIAL + RETRY 1 + RETRY 2
+  // ==========================================================
+
+  if (
+    r.retries > MAX_RETRIES
+  ) {
+
+    return;
+  }
+
+
+  // ==========================================================
+  // RESULT ALREADY EXISTS
+  // ==========================================================
+
+  if (
+    r.score !== null &&
+    r.score !== undefined
+  ) {
+
+    return;
+  }
+
+
+  // ==========================================================
+  // CREATE A COMPLETELY NEW RECOGNITION INSTANCE
+  // ==========================================================
+
+  recognition =
+    createRecognition();
+
+
+  if (!recognition) {
+
+    if ($("battleMsg")) {
+
+      $("battleMsg").textContent =
+        "Speech recognition is not supported. Please use Chrome.";
+
+      $("battleMsg").className =
+        "status error";
+    }
+
+
+    return;
+  }
+
+
+  // ==========================================================
+  // START
+  // ==========================================================
+
+  try {
+
+    recognition.start();
+
+  } catch (error) {
+
+    console.warn(
+      "Could not start speech recognition:",
+      error
+    );
+
 
     listening = false;
 
     busy = false;
 
-
-    if ($("micBtn")) {
-
-      $("micBtn").classList.remove(
-        "listening"
-      );
+    processingResult = false;
 
 
-      $("micBtn").innerHTML =
-        "🎙️<small>Tap to speak</small>";
+    resetMicUI();
+
+
+    if ($("battleMsg")) {
+
+      $("battleMsg").textContent =
+        "Could not start the microphone. Please tap again.";
+
+      $("battleMsg").className =
+        "status error";
     }
 
 
     render();
-  };
+  }
 }
 
 
 // ============================================================
-// HANDLE SPEECH
+// HANDLE SPEECH RESULT
 // ============================================================
 
 async function handleSpeech(text) {
@@ -716,7 +884,7 @@ async function handleSpeech(text) {
 
 
   // ==========================================================
-  // EMPTY SPEECH
+  // EMPTY RESULT
   // ==========================================================
 
   if (
@@ -726,11 +894,15 @@ async function handleSpeech(text) {
 
     busy = false;
 
+    processingResult = false;
+
+    listening = false;
+
 
     if ($("battleMsg")) {
 
       $("battleMsg").textContent =
-        "No speech was detected. Please speak the complete sentence.";
+        "No speech was detected. Please try again.";
 
       $("battleMsg").className =
         "status error";
@@ -744,28 +916,19 @@ async function handleSpeech(text) {
 
 
   // ==========================================================
-  // SAFETY CHECK
+  // SAFETY
   // ==========================================================
-
-  /*
-    IMPORTANT:
-
-    retries can be:
-
-    0 = initial speech
-    1 = Retry 1
-    2 = Retry 2
-
-    All three attempts are allowed.
-
-    Only values ABOVE 2 are rejected.
-  */
 
   if (
     r.retries > MAX_RETRIES
   ) {
 
     busy = false;
+
+    processingResult = false;
+
+    listening = false;
+
 
     render();
 
@@ -789,7 +952,7 @@ async function handleSpeech(text) {
 
 
   // ==========================================================
-  // CALCULATE ACCURACY
+  // GET SENTENCE
   // ==========================================================
 
   const sentence =
@@ -800,16 +963,25 @@ async function handleSpeech(text) {
 
   if (!sentence) {
 
+    console.error(
+      "Sentence not found."
+    );
+
+
     busy = false;
 
-    console.error(
-      "Sentence not found for round:",
-      state.currentRound
-    );
+    processingResult = false;
+
+    listening = false;
+
 
     return;
   }
 
+
+  // ==========================================================
+  // CALCULATE SCORE
+  // ==========================================================
 
   r.score =
     similarity(
@@ -819,30 +991,28 @@ async function handleSpeech(text) {
 
 
   // ==========================================================
-  // SPEECH FINISHED
+  // SAVE LOCAL STATE
   // ==========================================================
 
-  busy = false;
-
-
-  // Save immediately
   saveState(state);
 
 
   // ==========================================================
-  // MESSAGE
+  // FINISHED SPEECH
+  // ==========================================================
+
+  listening = false;
+
+  busy = true;
+
+
+  // ==========================================================
+  // FINAL ATTEMPT
   // ==========================================================
 
   if (
     r.retries >= MAX_RETRIES
   ) {
-
-    /*
-      Retry 2 completed.
-
-      Do NOT automatically move
-      to the next sentence.
-    */
 
     if ($("battleMsg")) {
 
@@ -881,137 +1051,22 @@ async function handleSpeech(text) {
 
 
   // ==========================================================
+  // FINISH PROCESSING
+  // ==========================================================
+
+  busy = false;
+
+  processingResult = false;
+
+
+  resetMicUI();
+
+
+  // ==========================================================
   // UPDATE UI
   // ==========================================================
 
   render();
-
-
-  /*
-    VERY IMPORTANT:
-
-    There is NO:
-
-      advanceRound();
-
-    here.
-
-    Continue button controls
-    the next sentence.
-  */
-}
-
-
-// ============================================================
-// START SPEECH
-// ============================================================
-
-function startSpeech() {
-
-  // Already listening
-  if (
-    listening ||
-    busy
-  ) {
-
-    return;
-  }
-
-
-  const r =
-    ensureRound();
-
-
-  /*
-    IMPORTANT FIX:
-
-    We use:
-
-        retries > MAX_RETRIES
-
-    NOT:
-
-        retries >= MAX_RETRIES
-
-    Because Retry 2 must still be allowed
-    to start the third speech attempt.
-  */
-
-  if (
-    r.retries > MAX_RETRIES
-  ) {
-
-    return;
-  }
-
-
-  // Do not start speech if a result
-  // already exists.
-  if (
-    r.score !== null &&
-    r.score !== undefined
-  ) {
-
-    return;
-  }
-
-
-  // ==========================================================
-  // MESSAGE
-  // ==========================================================
-
-  if ($("battleMsg")) {
-
-    if (r.retries === 0) {
-
-      $("battleMsg").textContent =
-        "Speak the complete sentence.";
-
-    } else {
-
-      $("battleMsg").textContent =
-        `Retry ${r.retries}/2. Speak the sentence again.`;
-    }
-
-
-    $("battleMsg").className =
-      "status";
-  }
-
-
-  // ==========================================================
-  // START RECOGNITION
-  // ==========================================================
-
-  try {
-
-    recognition.start();
-
-  } catch (error) {
-
-    busy = false;
-
-    listening = false;
-
-
-    console.warn(
-      "Speech recognition could not start:",
-      error
-    );
-
-
-    if ($("battleMsg")) {
-
-      $("battleMsg").textContent =
-        "Could not start the microphone. Please try again.";
-
-      $("battleMsg").className =
-        "status error";
-    }
-
-
-    render();
-  }
 }
 
 
@@ -1026,12 +1081,11 @@ function retry() {
 
 
   // ==========================================================
-  // MUST HAVE PREVIOUS RESULT
+  // RESULT REQUIRED
   // ==========================================================
 
   if (
-    r.score === null ||
-    r.score === undefined
+    !hasResult(r)
   ) {
 
     return;
@@ -1039,7 +1093,7 @@ function retry() {
 
 
   // ==========================================================
-  // MAXIMUM 2 RETRIES
+  // ONLY TWO RETRIES
   // ==========================================================
 
   if (
@@ -1051,7 +1105,7 @@ function retry() {
 
 
   // ==========================================================
-  // INCREASE RETRY COUNT
+  // INCREASE RETRY
   // ==========================================================
 
   r.retries += 1;
@@ -1067,14 +1121,14 @@ function retry() {
 
 
   // ==========================================================
-  // SAVE STATE
+  // SAVE
   // ==========================================================
 
   saveState(state);
 
 
   // ==========================================================
-  // SHOW MESSAGE
+  // MESSAGE
   // ==========================================================
 
   if ($("battleMsg")) {
@@ -1095,19 +1149,19 @@ function retry() {
 
 
   // ==========================================================
-  // START MICROPHONE
+  // START NEW SPEECH INSTANCE
   // ==========================================================
 
   setTimeout(() => {
 
     startSpeech();
 
-  }, 250);
+  }, 300);
 }
 
 
 // ============================================================
-// CONTINUE TO NEXT ROUND
+// CONTINUE
 // ============================================================
 
 async function advanceRound() {
@@ -1117,13 +1171,12 @@ async function advanceRound() {
 
 
   // ==========================================================
-  // REQUIRE RESULT
+  // RESULT REQUIRED
   // ==========================================================
 
   if (
     !r ||
-    r.score === null ||
-    r.score === undefined
+    !hasResult(r)
   ) {
 
     return;
@@ -1137,12 +1190,11 @@ async function advanceRound() {
   state.currentRound += 1;
 
 
-  // Save immediately
   saveState(state);
 
 
   // ==========================================================
-  // FIVE ROUNDS COMPLETED
+  // FIVE ROUNDS COMPLETE
   // ==========================================================
 
   if (
@@ -1156,4 +1208,275 @@ async function advanceRound() {
   }
 
 
-  // ========================
+  // ==========================================================
+  // FIREBASE
+  // ==========================================================
+
+  await sync({});
+
+
+  // ==========================================================
+  // MESSAGE
+  // ==========================================================
+
+  if ($("battleMsg")) {
+
+    $("battleMsg").textContent =
+      "Next sentence. Get ready!";
+
+    $("battleMsg").className =
+      "status";
+  }
+
+
+  render();
+}
+
+
+// ============================================================
+// FINISH BATTLE
+// ============================================================
+
+async function finishBattle() {
+
+  // ==========================================================
+  // ALREADY COMPLETED
+  // ==========================================================
+
+  if (state.completed) {
+
+    location.replace(
+      "result.html"
+    );
+
+    return;
+  }
+
+
+  // ==========================================================
+  // MARK COMPLETE
+  // ==========================================================
+
+  state.completed =
+    true;
+
+
+  state.currentRound =
+    TOTAL_ROUNDS;
+
+
+  state.completedAt =
+    Date.now();
+
+
+  // ==========================================================
+  // CALCULATE FINAL SCORE
+  // ==========================================================
+
+  const scores =
+    state.rounds
+      .slice(
+        0,
+        TOTAL_ROUNDS
+      )
+      .map(
+        round =>
+          Number(
+            round?.score || 0
+          )
+      );
+
+
+  const totalScore =
+    scores.reduce(
+      (sum, score) =>
+        sum + score,
+      0
+    );
+
+
+  state.finalScore =
+    Math.round(
+      totalScore /
+      TOTAL_ROUNDS
+    );
+
+
+  // ==========================================================
+  // TOTAL RETRIES
+  // ==========================================================
+
+  state.totalRetries =
+    state.rounds.reduce(
+      (total, round) =>
+        total +
+        Number(
+          round?.retries || 0
+        ),
+      0
+    );
+
+
+  // ==========================================================
+  // SAVE LOCALLY
+  // ==========================================================
+
+  saveState(state);
+
+
+  // ==========================================================
+  // FIREBASE
+  // ==========================================================
+
+  await sync({
+
+    status:
+      "completed",
+
+    finalScore:
+      state.finalScore,
+
+    totalRetries:
+      state.totalRetries,
+
+    completedAt:
+      state.completedAt
+  });
+
+
+  // ==========================================================
+  // RESULT PAGE
+  // ==========================================================
+
+  location.replace(
+    "result.html"
+  );
+}
+
+
+// ============================================================
+// BUTTON EVENTS
+// ============================================================
+
+if ($("micBtn")) {
+
+  $("micBtn").addEventListener(
+    "click",
+    startSpeech
+  );
+}
+
+
+if ($("retryBtn")) {
+
+  $("retryBtn").addEventListener(
+    "click",
+    retry
+  );
+}
+
+
+if ($("nextBtn")) {
+
+  $("nextBtn").addEventListener(
+    "click",
+    advanceRound
+  );
+}
+
+
+// ============================================================
+// ONLINE
+// ============================================================
+
+window.addEventListener(
+  "online",
+  () => {
+
+    if ($("onlineDot")) {
+
+      $("onlineDot").classList.add(
+        "on"
+      );
+    }
+
+
+    if ($("connectionText")) {
+
+      $("connectionText").textContent =
+        "Online";
+    }
+
+
+    sync({});
+  }
+);
+
+
+// ============================================================
+// OFFLINE
+// ============================================================
+
+window.addEventListener(
+  "offline",
+  () => {
+
+    if ($("onlineDot")) {
+
+      $("onlineDot").classList.remove(
+        "on"
+      );
+    }
+
+
+    if ($("connectionText")) {
+
+      $("connectionText").textContent =
+        "Offline • Saved locally";
+    }
+  }
+);
+
+
+// ============================================================
+// INITIALIZE
+// ============================================================
+
+(async () => {
+
+  try {
+
+    await ensureAnonymousAuth();
+
+  } catch (error) {
+
+    console.warn(
+      "Anonymous authentication failed:",
+      error
+    );
+  }
+
+
+  // Setup initial UI
+  render();
+
+
+  // Setup online state
+  if (!navigator.onLine) {
+
+    if ($("onlineDot")) {
+
+      $("onlineDot").classList.remove(
+        "on"
+      );
+    }
+
+
+    if ($("connectionText")) {
+
+      $("connectionText").textContent =
+        "Offline • Saved locally";
+    }
+  }
+
+})();
