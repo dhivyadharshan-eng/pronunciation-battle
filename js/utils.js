@@ -1,53 +1,274 @@
-export const MAX_ATTEMPTS = 4; // 1 original + 3 retries
+// ============================================================
+// POLYGLOT PRONUNCIATION BATTLE
+// utils.js
+// ============================================================
 
-export function createId(prefix = "id") {
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return prefix + "-" + [...bytes].map(b => b.toString(16).padStart(2, "0")).join("");
-}
+const ACTIVE_STATE_KEY = "polyglot_active_team";
+const COMPLETED_KEY = "polyglot_completed_competitions";
 
-export function randomCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let out = "POLY-";
-  const values = crypto.getRandomValues(new Uint32Array(6));
-  for (let i = 0; i < 6; i++) out += chars[values[i] % chars.length];
-  return out;
-}
 
-export function cleanText(text) {
-  return String(text || "").toLowerCase().replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
-}
-
-export function similarity(a, b) {
-  a = cleanText(a); b = cleanText(b);
-  if (!a && !b) return 100;
-  if (!a || !b) return 0;
-  const prev = Array.from({length: b.length + 1}, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    const cur = [i];
-    for (let j = 1; j <= b.length; j++) {
-      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    }
-    for (let j = 0; j <= b.length; j++) prev[j] = cur[j];
-  }
-  return Math.max(0, Math.min(100, Math.round((1 - prev[b.length] / Math.max(a.length, b.length)) * 100)));
-}
-
-export function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>'"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[ch]));
-}
-
-export function stableCompare(a, b) {
-  const scoreA = Number(a.finalScore ?? -1), scoreB = Number(b.finalScore ?? -1);
-  if (scoreB !== scoreA) return scoreB - scoreA;
-  const timeA = Number(a.completedAt ?? Number.MAX_SAFE_INTEGER), timeB = Number(b.completedAt ?? Number.MAX_SAFE_INTEGER);
-  if (timeA !== timeB) return timeA - timeB;
-  return String(a.teamId || "").localeCompare(String(b.teamId || ""));
-}
+// ============================================================
+// SAVE ACTIVE BATTLE
+// ============================================================
 
 export function saveState(state) {
-  localStorage.setItem("pbBattleState", JSON.stringify(state));
+
+  if (!state) return;
+
+  localStorage.setItem(
+    ACTIVE_STATE_KEY,
+    JSON.stringify(state)
+  );
 }
+
+
+// ============================================================
+// LOAD ACTIVE BATTLE
+// ============================================================
+
 export function loadState() {
-  try { return JSON.parse(localStorage.getItem("pbBattleState") || "null"); } catch { return null; }
+
+  try {
+
+    const saved =
+      localStorage.getItem(
+        ACTIVE_STATE_KEY
+      );
+
+    if (!saved) {
+      return null;
+    }
+
+    return JSON.parse(saved);
+
+  } catch (error) {
+
+    console.error(
+      "Failed to load state:",
+      error
+    );
+
+    return null;
+  }
 }
-export function clearBattleState() { localStorage.removeItem("pbBattleState"); }
+
+
+// ============================================================
+// CLEAR ACTIVE BATTLE
+// ============================================================
+
+export function clearActiveState() {
+
+  localStorage.removeItem(
+    ACTIVE_STATE_KEY
+  );
+}
+
+
+// ============================================================
+// GET COMPLETED COMPETITIONS
+// ============================================================
+
+function getCompletedMap() {
+
+  try {
+
+    const saved =
+      localStorage.getItem(
+        COMPLETED_KEY
+      );
+
+    if (!saved) {
+      return {};
+    }
+
+    return JSON.parse(saved);
+
+  } catch (error) {
+
+    console.error(
+      "Failed to load completed competitions:",
+      error
+    );
+
+    return {};
+  }
+}
+
+
+// ============================================================
+// CHECK COMPLETED COMPETITION
+// ============================================================
+
+export function isCompetitionCompleted(
+  competitionCode
+) {
+
+  if (!competitionCode) {
+    return false;
+  }
+
+  const completed =
+    getCompletedMap();
+
+  return (
+    completed[competitionCode] === true
+  );
+}
+
+
+// ============================================================
+// MARK COMPETITION COMPLETED
+// ============================================================
+
+export function markCompetitionCompleted(
+  competitionCode
+) {
+
+  if (!competitionCode) {
+    return;
+  }
+
+  const completed =
+    getCompletedMap();
+
+  completed[competitionCode] = true;
+
+  localStorage.setItem(
+    COMPLETED_KEY,
+    JSON.stringify(completed)
+  );
+}
+
+
+// ============================================================
+// TEXT NORMALIZATION
+// ============================================================
+
+function normalizeText(text) {
+
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[.,!?;:'"()\-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+
+// ============================================================
+// LEVENSHTEIN DISTANCE
+// ============================================================
+
+function levenshtein(a, b) {
+
+  const matrix = [];
+
+  for (
+    let i = 0;
+    i <= b.length;
+    i++
+  ) {
+
+    matrix[i] = [i];
+  }
+
+  for (
+    let j = 0;
+    j <= a.length;
+    j++
+  ) {
+
+    matrix[0][j] = j;
+  }
+
+  for (
+    let i = 1;
+    i <= b.length;
+    i++
+  ) {
+
+    for (
+      let j = 1;
+      j <= a.length;
+      j++
+    ) {
+
+      if (
+        b.charAt(i - 1) ===
+        a.charAt(j - 1)
+      ) {
+
+        matrix[i][j] =
+          matrix[i - 1][j - 1];
+
+      } else {
+
+        matrix[i][j] =
+          Math.min(
+
+            matrix[i - 1][j] + 1,
+
+            matrix[i][j - 1] + 1,
+
+            matrix[i - 1][j - 1] + 1
+
+          );
+      }
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
+
+// ============================================================
+// ACCURACY
+// ============================================================
+
+export function similarity(
+  expected,
+  actual
+) {
+
+  const original =
+    normalizeText(expected);
+
+  const spoken =
+    normalizeText(actual);
+
+  if (!original) {
+    return 0;
+  }
+
+  if (!spoken) {
+    return 0;
+  }
+
+  const distance =
+    levenshtein(
+      original,
+      spoken
+    );
+
+  const maxLength =
+    Math.max(
+      original.length,
+      spoken.length
+    );
+
+  if (maxLength === 0) {
+    return 100;
+  }
+
+  const accuracy =
+    (1 - distance / maxLength) *
+    100;
+
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(accuracy)
+    )
+  );
+}
