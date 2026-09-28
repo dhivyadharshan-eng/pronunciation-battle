@@ -15,7 +15,8 @@ import { buildSentenceSet } from "./sentences.js";
 import {
   similarity,
   loadState,
-  saveState
+  saveState,
+  markCompetitionCompleted
 } from "./utils.js";
 
 
@@ -1259,6 +1260,9 @@ async function finishBattle() {
 
   state.completed =
     true;
+  markCompetitionCompleted(
+  state.competitionCode
+);
 
 
   state.currentRound =
