@@ -1,322 +1,932 @@
 // ============================================================
 // POLYGLOT PRONUNCIATION BATTLE
-// utils.js
+// host.js
 // ============================================================
 
-// ------------------------------------------------------------
-// Local Storage Keys
-// ------------------------------------------------------------
+import {
+  database,
+  auth,
+  ref,
+  set,
+  onValue,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
+} from "../firebase.js";
 
-const ACTIVE_STATE_KEY = "polyglot_active_team";
-const COMPLETED_KEY = "polyglot_completed_competitions";
+import {
+  randomCode,
+  stableCompare,
+  escapeHtml
+} from "./utils.js";
 
-// ------------------------------------------------------------
-// ID GENERATOR
-// ------------------------------------------------------------
 
-export function createId(prefix = "id") {
-  const randomPart =
-    Math.random()
-      .toString(36)
-      .substring(2, 10)
-      .toUpperCase();
+// ============================================================
+// HELPER
+// ============================================================
 
-  return `${prefix}-${Date.now()}-${randomPart}`;
-}
+const $ = (id) => document.getElementById(id);
 
-// ------------------------------------------------------------
-// COMPETITION CODE GENERATOR
-// Example: POLY-AABH94
-// ------------------------------------------------------------
 
-export function randomCode() {
-  const characters =
-    "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+// ============================================================
+// HOST STATE
+// ============================================================
 
-  let code = "";
+let activeCode =
+  localStorage.getItem("pbHostCompetition") || "";
 
-  for (let i = 0; i < 6; i++) {
-    code +=
-      characters[
-        Math.floor(
-          Math.random() * characters.length
-        )
-      ];
-  }
+let unsubscribe = null;
 
-  return `POLY-${code}`;
-}
 
-// ------------------------------------------------------------
-// ACTIVE BATTLE STATE
-// ------------------------------------------------------------
+// ============================================================
+// CURRENT TEAMS
+// ============================================================
 
-export function saveState(state) {
-  if (!state) return;
+let currentTeams = [];
 
-  try {
-    localStorage.setItem(
-      ACTIVE_STATE_KEY,
-      JSON.stringify(state)
-    );
-  } catch (error) {
-    console.error(
-      "Failed to save battle state:",
-      error
-    );
+
+// ============================================================
+// SHOW DASHBOARD
+// ============================================================
+
+function showDashboard() {
+
+  $("loginCard").hidden = true;
+
+  $("dashboard").hidden = false;
+
+  $("logoutBtn").hidden = false;
+
+  if (activeCode) {
+    loadCompetition(activeCode);
   }
 }
 
-export function loadState() {
-  try {
-    const saved =
-      localStorage.getItem(
-        ACTIVE_STATE_KEY
-      );
 
-    if (!saved) {
-      return null;
+// ============================================================
+// SHOW LOGIN
+// ============================================================
+
+function showLogin() {
+
+  $("loginCard").hidden = false;
+
+  $("dashboard").hidden = true;
+
+  $("logoutBtn").hidden = true;
+}
+
+
+// ============================================================
+// HOST LOGIN
+// ============================================================
+
+$("loginForm").addEventListener(
+  "submit",
+  async (event) => {
+
+    event.preventDefault();
+
+    const email =
+      $("email").value.trim();
+
+    const password =
+      $("password").value;
+
+    if (!email || !password) {
+
+      $("loginMsg").textContent =
+        "Please enter your email and password.";
+
+      $("loginMsg").className =
+        "status error";
+
+      return;
     }
 
-    return JSON.parse(saved);
+    $("loginMsg").textContent =
+      "Signing in…";
 
-  } catch (error) {
-    console.error(
-      "Failed to load battle state:",
-      error
-    );
+    $("loginMsg").className =
+      "status";
 
-    return null;
-  }
-}
+    try {
 
-export function clearActiveState() {
-  try {
-    localStorage.removeItem(
-      ACTIVE_STATE_KEY
-    );
-  } catch (error) {
-    console.error(
-      "Failed to clear active state:",
-      error
-    );
-  }
-}
-
-// ------------------------------------------------------------
-// COMPLETED COMPETITIONS
-// ------------------------------------------------------------
-
-function getCompletedMap() {
-  try {
-    const saved =
-      localStorage.getItem(
-        COMPLETED_KEY
+      await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
       );
 
-    if (!saved) {
-      return {};
+      $("loginMsg").textContent = "";
+
+    } catch (error) {
+
+      console.error(
+        "Host login error:",
+        error
+      );
+
+      $("loginMsg").textContent =
+        getAuthErrorMessage(error);
+
+      $("loginMsg").className =
+        "status error";
+    }
+  }
+);
+
+
+// ============================================================
+// FIREBASE AUTH ERROR MESSAGE
+// ============================================================
+
+function getAuthErrorMessage(error) {
+
+  switch (error?.code) {
+
+    case "auth/invalid-credential":
+      return "Invalid email or password.";
+
+    case "auth/user-not-found":
+      return "No host account was found with this email.";
+
+    case "auth/wrong-password":
+      return "Incorrect password.";
+
+    case "auth/invalid-email":
+      return "Please enter a valid email address.";
+
+    case "auth/too-many-requests":
+      return "Too many login attempts. Please try again later.";
+
+    case "auth/network-request-failed":
+      return "Network error. Please check your internet connection.";
+
+    default:
+      return (
+        error?.message ||
+        "Host login failed. Please try again."
+      );
+  }
+}
+
+
+// ============================================================
+// LOGOUT
+// ============================================================
+
+$("logoutBtn").addEventListener(
+  "click",
+  async () => {
+
+    try {
+
+      await signOut(auth);
+
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+
+      currentTeams = [];
+
+    } catch (error) {
+
+      console.error(
+        "Logout error:",
+        error
+      );
+    }
+  }
+);
+
+
+// ============================================================
+// CREATE COMPETITION
+// ============================================================
+
+$("createBtn").addEventListener(
+  "click",
+  async () => {
+
+    const user =
+      auth.currentUser;
+
+    if (!user) {
+
+      alert(
+        "Please sign in again."
+      );
+
+      return;
     }
 
-    return JSON.parse(saved);
+    try {
 
-  } catch (error) {
-    console.error(
-      "Failed to load completed competitions:",
-      error
+      $("createBtn").disabled = true;
+
+      $("createBtn").textContent =
+        "Creating…";
+
+      const code =
+        randomCode();
+
+      const competition = {
+
+        code: code,
+
+        active: true,
+
+        createdAt:
+          Date.now(),
+
+        createdBy:
+          user.uid,
+
+        teams: {}
+      };
+
+      await set(
+        ref(
+          database,
+          `competitions/${code}`
+        ),
+        competition
+      );
+
+      activeCode =
+        code;
+
+      localStorage.setItem(
+        "pbHostCompetition",
+        code
+      );
+
+      loadCompetition(
+        code
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Competition creation error:",
+        error
+      );
+
+      alert(
+        error?.message ||
+        "Unable to create competition."
+      );
+
+    } finally {
+
+      $("createBtn").disabled =
+        false;
+
+      $("createBtn").textContent =
+        "Create Competition";
+    }
+  }
+);
+
+
+// ============================================================
+// REFRESH
+// ============================================================
+
+$("refreshBtn").addEventListener(
+  "click",
+  () => {
+
+    if (!activeCode) {
+      return;
+    }
+
+    loadCompetition(
+      activeCode
     );
-
-    return {};
   }
-}
+);
 
-export function isCompetitionCompleted(
-  competitionCode
-) {
-  if (!competitionCode) {
-    return false;
-  }
 
-  const completed =
-    getCompletedMap();
+// ============================================================
+// LOAD COMPETITION
+// ============================================================
 
-  return (
-    completed[competitionCode] === true
-  );
-}
+function loadCompetition(code) {
 
-export function markCompetitionCompleted(
-  competitionCode
-) {
-  if (!competitionCode) {
+  if (!code) {
     return;
   }
 
-  const completed =
-    getCompletedMap();
+  if (unsubscribe) {
 
-  completed[competitionCode] = true;
+    unsubscribe();
 
-  try {
-    localStorage.setItem(
-      COMPLETED_KEY,
-      JSON.stringify(completed)
-    );
-  } catch (error) {
-    console.error(
-      "Failed to save completed competition:",
-      error
-    );
-  }
-}
-
-// ------------------------------------------------------------
-// TEXT NORMALIZATION
-// ------------------------------------------------------------
-
-function normalizeText(text) {
-  return String(text || "")
-    .toLowerCase()
-    .replace(/[.,!?;:'"()\-]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-// ------------------------------------------------------------
-// LEVENSHTEIN DISTANCE
-// ------------------------------------------------------------
-
-function levenshtein(a, b) {
-  const matrix = [];
-
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i];
+    unsubscribe = null;
   }
 
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j;
-  }
+  $("code").textContent =
+    code;
 
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
+  $("activeCode").textContent =
+    `Competition: ${code}`;
 
-      if (
-        b.charAt(i - 1) ===
-        a.charAt(j - 1)
-      ) {
-        matrix[i][j] =
-          matrix[i - 1][j - 1];
 
-      } else {
-        matrix[i][j] =
-          Math.min(
-            matrix[i - 1][j] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j - 1] + 1
-          );
+  // ----------------------------------------------------------
+  // Registration URL
+  // ----------------------------------------------------------
+
+  const registrationUrl =
+    `${location.origin}${location.pathname.replace(
+      /host\.html$/,
+      "index1.html"
+    )}?code=${encodeURIComponent(code)}`;
+
+
+  // ----------------------------------------------------------
+  // QR CODE
+  // ----------------------------------------------------------
+
+  $("qr").src =
+    `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+      registrationUrl
+    )}`;
+
+
+  // ----------------------------------------------------------
+  // REAL-TIME TEAM LISTENER
+  // ----------------------------------------------------------
+
+  unsubscribe =
+    onValue(
+      ref(
+        database,
+        `competitions/${code}/teams`
+      ),
+      (snapshot) => {
+
+        const teams =
+          snapshot.exists()
+            ? snapshot.val()
+            : {};
+
+        render(
+          teams
+        );
+      },
+      (error) => {
+
+        console.error(
+          "Competition listener error:",
+          error
+        );
+
+        currentTeams = [];
+
+        $("leaderboard").innerHTML =
+          `<tr>
+            <td colspan="9" class="empty">
+              Unable to load teams.
+            </td>
+          </tr>`;
       }
-    }
-  }
-
-  return matrix[b.length][a.length];
+    );
 }
 
-// ------------------------------------------------------------
-// SPEECH ACCURACY
-// ------------------------------------------------------------
 
-export function similarity(
-  expected,
-  actual
+// ============================================================
+// RENDER DASHBOARD
+// ============================================================
+
+function render(rawTeams) {
+
+  const teams =
+    Object.values(
+      rawTeams || {}
+    ).sort(
+      stableCompare
+    );
+
+  // Save current teams for CSV export
+  currentTeams = teams;
+
+
+  // ----------------------------------------------------------
+  // STATISTICS
+  // ----------------------------------------------------------
+
+  const completed =
+    teams.filter(
+      team =>
+        team?.status ===
+        "completed"
+    ).length;
+
+  const inBattle =
+    teams.filter(
+      team =>
+        team?.status ===
+        "in-battle"
+    ).length;
+
+  const registered =
+    teams.filter(
+      team =>
+        team?.status ===
+        "registered"
+    ).length;
+
+
+  $("total").textContent =
+    teams.length;
+
+  $("completed").textContent =
+    completed;
+
+  $("inBattle").textContent =
+    inBattle;
+
+  $("registered").textContent =
+    registered;
+
+
+  // ----------------------------------------------------------
+  // EXPORT BUTTON STATUS
+  // ----------------------------------------------------------
+
+  updateExportButton(
+    teams
+  );
+
+
+  // ----------------------------------------------------------
+  // EMPTY LEADERBOARD
+  // ----------------------------------------------------------
+
+  if (!teams.length) {
+
+    $("leaderboard").innerHTML =
+      `<tr>
+        <td colspan="9" class="empty">
+          Waiting for teams…
+        </td>
+      </tr>`;
+
+    return;
+  }
+
+
+  // ----------------------------------------------------------
+  // LEADERBOARD
+  // ----------------------------------------------------------
+
+  $("leaderboard").innerHTML =
+    teams
+      .map(
+        (team, index) => {
+
+          const currentRound =
+            Math.min(
+              Number(
+                team?.currentRound || 0
+              ) +
+              (
+                team?.status ===
+                "completed"
+                  ? 0
+                  : 1
+              ),
+              5
+            );
+
+
+          const score =
+            team?.finalScore == null
+              ? "—"
+              : Number(
+                  team.finalScore
+                ).toFixed(0);
+
+
+          const retries =
+            Number(
+              team?.retriesUsed || 0
+            );
+
+
+          const teamName =
+            escapeHtml(
+              team?.teamName ||
+              "Unnamed Team"
+            );
+
+
+          const teamId =
+            escapeHtml(
+              String(
+                team?.teamId ||
+                ""
+              ).slice(-8)
+            );
+
+
+          const status =
+            escapeHtml(
+              team?.status ||
+              "unknown"
+            );
+
+
+          return `
+            <tr>
+
+              <td>
+                ${index + 1}
+              </td>
+
+              <td>
+                <strong>
+                  ${teamName}
+                </strong>
+
+                <small>
+                  ${teamId}
+                </small>
+              </td>
+
+              <td>
+                <span
+                  class="status-chip ${status}"
+                >
+                  ${status}
+                </span>
+              </td>
+
+              <td>
+                ${currentRound}/5
+              </td>
+
+              <td>
+                ${retries}
+              </td>
+
+              <td>
+                ${score}
+              </td>
+
+              <td>
+                ${escapeHtml(
+                  team?.member1 || "—"
+                )}
+              </td>
+
+              <td>
+                ${escapeHtml(
+                  team?.member2 || "—"
+                )}
+              </td>
+
+              <td>
+                ${escapeHtml(
+                  team?.member3 || "—"
+                )}
+              </td>
+
+            </tr>
+          `;
+        }
+      )
+      .join("");
+}
+
+
+// ============================================================
+// EXPORT BUTTON STATUS
+// ============================================================
+
+function updateExportButton(
+  teams
 ) {
-  const original =
-    normalizeText(expected);
 
-  const spoken =
-    normalizeText(actual);
+  const button =
+    $("downloadCsvBtn");
 
-  if (!original || !spoken) {
-    return 0;
+  if (!button) {
+    return;
   }
 
-  const distance =
-    levenshtein(
-      original,
-      spoken
-    );
+  if (!teams.length) {
 
-  const maxLength =
-    Math.max(
-      original.length,
-      spoken.length
-    );
+    button.disabled = true;
 
-  if (maxLength === 0) {
-    return 100;
+    button.textContent =
+      "📥 Download Leaderboard";
+
+    return;
   }
 
-  const accuracy =
-    (1 - distance / maxLength) * 100;
 
-  return Math.max(
-    0,
-    Math.min(
-      100,
-      Math.round(accuracy)
+  const allCompleted =
+    teams.every(
+      team =>
+        team?.status ===
+        "completed"
+    );
+
+
+  if (allCompleted) {
+
+    button.disabled =
+      false;
+
+    button.textContent =
+      "📥 Download Leaderboard CSV";
+
+  } else {
+
+    button.disabled =
+      true;
+
+    button.textContent =
+      "🔒 Complete All Teams First";
+  }
+}
+
+
+// ============================================================
+// CSV ESCAPE
+// ============================================================
+
+function csvEscape(value) {
+
+  const text =
+    String(
+      value ?? ""
+    );
+
+  return `"${text
+    .replace(/"/g, '""')}"`;
+}
+
+
+// ============================================================
+// FORMAT DATE
+// ============================================================
+
+function formatDate(timestamp) {
+
+  if (!timestamp) {
+    return "—";
+  }
+
+  const date =
+    new Date(
+      Number(timestamp)
+    );
+
+  if (
+    Number.isNaN(
+      date.getTime()
     )
+  ) {
+    return "—";
+  }
+
+  return date.toLocaleString(
+    "en-IN",
+    {
+      dateStyle: "medium",
+      timeStyle: "medium"
+    }
   );
 }
 
-// ------------------------------------------------------------
-// LEADERBOARD SORTING
-// ------------------------------------------------------------
 
-export function stableCompare(a, b) {
+// ============================================================
+// DOWNLOAD LEADERBOARD CSV
+// ============================================================
 
-  const scoreA =
-    Number(a?.finalScore ?? 0);
+function downloadLeaderboardCSV() {
 
-  const scoreB =
-    Number(b?.finalScore ?? 0);
+  if (!currentTeams.length) {
 
-  // Higher score first
-  if (scoreA !== scoreB) {
-    return scoreB - scoreA;
+    alert(
+      "There are no teams to export."
+    );
+
+    return;
   }
 
-  // If scores are equal,
-  // earlier completion time comes first
-  const timeA =
-    Number(a?.completedAt ?? Infinity);
 
-  const timeB =
-    Number(b?.completedAt ?? Infinity);
+  // ----------------------------------------------------------
+  // Make sure every team is completed
+  // ----------------------------------------------------------
 
-  if (timeA !== timeB) {
-    return timeA - timeB;
+  const allCompleted =
+    currentTeams.every(
+      team =>
+        team?.status ===
+        "completed"
+    );
+
+
+  if (!allCompleted) {
+
+    alert(
+      "Please wait until all teams have completed the competition."
+    );
+
+    return;
   }
 
-  // Final deterministic tie-breaker
-  const nameA =
-    String(a?.teamName || "").toLowerCase();
 
-  const nameB =
-    String(b?.teamName || "").toLowerCase();
+  // ----------------------------------------------------------
+  // CSV HEADER
+  // ----------------------------------------------------------
 
-  return nameA.localeCompare(nameB);
+  const rows = [
+
+    [
+      "Position",
+      "Team Name",
+      "Member 1",
+      "Member 2",
+      "Member 3",
+      "Status",
+      "Rounds",
+      "Retries",
+      "Final Score",
+      "Completed Time"
+    ]
+
+  ];
+
+
+  // ----------------------------------------------------------
+  // CSV DATA
+  // ----------------------------------------------------------
+
+  currentTeams.forEach(
+    (team, index) => {
+
+      rows.push([
+
+        index + 1,
+
+        team?.teamName ||
+          "",
+
+        team?.member1 ||
+          "",
+
+        team?.member2 ||
+          "",
+
+        team?.member3 ||
+          "",
+
+        team?.status ||
+          "",
+
+        "5/5",
+
+        Number(
+          team?.retriesUsed || 0
+        ),
+
+        team?.finalScore == null
+          ? ""
+          : Number(
+              team.finalScore
+            ).toFixed(0),
+
+        formatDate(
+          team?.completedAt
+        )
+
+      ]);
+    }
+  );
+
+
+  // ----------------------------------------------------------
+  // CREATE CSV
+  // ----------------------------------------------------------
+
+  const csv =
+    rows
+      .map(
+        row =>
+          row
+            .map(csvEscape)
+            .join(",")
+      )
+      .join("\r\n");
+
+
+  // ----------------------------------------------------------
+  // UTF-8 BOM
+  // Helps Excel display the file correctly
+  // ----------------------------------------------------------
+
+  const blob =
+    new Blob(
+      [
+        "\uFEFF" +
+        csv
+      ],
+      {
+        type:
+          "text/csv;charset=utf-8;"
+      }
+    );
+
+
+  // ----------------------------------------------------------
+  // FILE NAME
+  // ----------------------------------------------------------
+
+  const safeCode =
+    String(
+      activeCode ||
+      "competition"
+    )
+      .replace(
+        /[^a-zA-Z0-9_-]/g,
+        "_"
+      );
+
+
+  const fileName =
+    `Polyglot_Leaderboard_${safeCode}.csv`;
+
+
+  // ----------------------------------------------------------
+  // DOWNLOAD
+  // ----------------------------------------------------------
+
+  const url =
+    URL.createObjectURL(
+      blob
+    );
+
+  const link =
+    document.createElement(
+      "a"
+    );
+
+  link.href =
+    url;
+
+  link.download =
+    fileName;
+
+  document.body.appendChild(
+    link
+  );
+
+  link.click();
+
+  link.remove();
+
+  URL.revokeObjectURL(
+    url
+  );
 }
 
-// ------------------------------------------------------------
-// HTML ESCAPING
-// Prevents team names / text from being interpreted as HTML
-// ------------------------------------------------------------
 
-export function escapeHtml(value) {
+// ============================================================
+// DOWNLOAD BUTTON
+// ============================================================
 
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
+$("downloadCsvBtn").addEventListener(
+  "click",
+  downloadLeaderboardCSV
+);
+
+
+// ============================================================
+// AUTH STATE
+// ============================================================
+
+onAuthStateChanged(
+  auth,
+  (user) => {
+
+    if (user) {
+
+      console.log(
+        "Host authenticated:",
+        user.uid
+      );
+
+      showDashboard();
+
+    } else {
+
+      showLogin();
+    }
+  }
+);
