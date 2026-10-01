@@ -349,11 +349,13 @@ function loadCompetition(code) {
   // QR CODE
   // ----------------------------------------------------------
 
-  $("qr").src =
-    `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-      registrationUrl
-    )}`;
+const joinUrl = new URL("index.html", window.location.href);
+joinUrl.searchParams.set("code", code);
 
+const qrUrl = joinUrl.href;
+
+$("qr").src =
+  `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrUrl)}`;
 
   // ----------------------------------------------------------
   // REAL-TIME TEAM LISTENER
