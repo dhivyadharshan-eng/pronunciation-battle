@@ -775,62 +775,91 @@ function csvEscape(value) {
    FIREBASE AUTH STATE
    ========================================================= */
 
-onAuthStateChanged(
-  auth,
-  (user) => {
+/* =========================================================
+   FIREBASE AUTH STATE
+   ========================================================= */
+
+onAuthStateChanged(auth, (user) => {
+
+  console.log("Host auth state:", user);
+
+
+  // Check required HTML elements
+  console.log("loginCard:", $("loginCard"));
+  console.log("dashboard:", $("dashboard"));
+  console.log("logoutBtn:", $("logoutBtn"));
+
+
+  if (!user) {
+
+    console.log("No Firebase user. Showing login.");
+
+    if ($("loginCard")) {
+      $("loginCard").hidden = false;
+    }
+
+    if ($("dashboard")) {
+      $("dashboard").hidden = true;
+    }
+
+    if ($("logoutBtn")) {
+      $("logoutBtn").hidden = true;
+    }
+
+    return;
+  }
+
+
+  console.log("Firebase UID:", user.uid);
+
+
+  // Only your host account
+  if (user.uid !== HOST_UID) {
 
     console.log(
-      "Host auth state:",
-      user
-        ? {
-            uid: user.uid,
-            email: user.email
-          }
-        : null
+      "Unauthorized account:",
+      user.uid
     );
 
+    if ($("loginMsg")) {
+      $("loginMsg").textContent =
+        "This account is not authorized to access the host dashboard.";
 
-    if (!user) {
-
-      showLogin();
-
-      return;
+      $("loginMsg").className =
+        "status error";
     }
 
+    signOut(auth);
 
-    /*
-     * Only your Firebase UID is allowed
-     * to use the host dashboard.
-     */
-
-    if (user.uid !== HOST_UID) {
-
-      console.warn(
-        "Unauthorized host account:",
-        user.uid
-      );
+    return;
+  }
 
 
-      signOut(auth);
-
-      if ($("loginMsg")) {
-
-        $("loginMsg").textContent =
-          "This account is not authorized to access the host dashboard.";
-
-        $("loginMsg").className =
-          "status error";
-
-      }
+  console.log("Authorized host. Showing dashboard.");
 
 
-      showLogin();
+  if ($("loginCard")) {
+    $("loginCard").hidden = true;
+  }
 
-      return;
-    }
+  if ($("dashboard")) {
+    $("dashboard").hidden = false;
+  }
+
+  if ($("logoutBtn")) {
+    $("logoutBtn").hidden = false;
+  }
 
 
-    showDashboard();
+  if (activeCode) {
+
+    console.log(
+      "Loading saved competition:",
+      activeCode
+    );
+
+    loadCompetition(activeCode);
 
   }
-);
+
+});
