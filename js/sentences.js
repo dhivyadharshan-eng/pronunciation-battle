@@ -1,18 +1,71 @@
 export const SENTENCES = {
   easy: [
-    "Practice makes progress.", "Good communication builds trust.", "Speak clearly and calmly.", "Learning takes daily practice.", "Teamwork makes every task easier.", "Confidence grows with practice.", "Listen carefully before you speak.", "Small steps create big changes.", "A clear message avoids confusion.", "Kind words make conversations better."
+    "Maya made many mango muffins.",
+    "Seven silver stars shine softly.",
+    "Tiny turtles took a taxi.",
+    "Brave brothers brought bright balloons.",
+    "Lazy lions like lemon leaves.",
+    "Busy bees buzz beside bluebells.",
+    "Tiny birds bring bright berries.",
+    "Seven sheep sleep silently.",
+    "Clean clocks click clearly.",
+    "Happy hippos hop home."
   ],
+
   moderate: [
-    "Effective communication requires clarity and confidence.", "Technology changes the way we communicate every day.", "Consistent practice improves both accuracy and fluency.", "Good speakers pay attention to rhythm and pronunciation.", "A thoughtful response can make a difficult conversation easier.", "Successful teams communicate their ideas with precision.", "Public speaking becomes easier when preparation is consistent.", "Clear pronunciation helps listeners understand unfamiliar ideas.", "Learning a new language requires patience and regular exposure.", "Strong communication skills are useful in every profession."
+    "Charlie chose a cheerful cherry chair.",
+    "Nina neatly knitted nine navy neckties.",
+    "The busy baker baked beautiful blueberry bread.",
+    "Five funny frogs flipped fresh flowers.",
+    "Riya rarely reads red recipe books.",
+    "Larry likes lemon lollipops in London.",
+    "Clever Charlie chased cheerful chickens.",
+    "Seven small sailors sailed silently across the sea.",
+    "Quick queens quietly questioned quirky quails.",
+    "Bright blue birds boldly brought brown bread."
   ],
+
   hard: [
-    "Artificial intelligence is transforming how people learn, work, and communicate.",
-    "Accurate pronunciation requires careful listening, controlled breathing, and deliberate practice.",
-    "Innovative solutions often emerge when diverse perspectives are combined thoughtfully.",
-    "Professional communication depends on clarity, confidence, context, and active listening.",
-    "Technological progress creates opportunities while also demanding responsible communication."
+    "Thirty thirsty thinkers thoroughly thought through three tricky theories.",
+    "Seven sneaky squirrels swiftly switched shiny shoes.",
+    "The brilliant bluebird bravely broke the brittle branch.",
+    "Clever Clara carefully carried crispy crackers across the crowded classroom.",
+    "Three thick thieves threw thirty-three thin threads.",
+    "Brisk British brothers brought bright brass brushes.",
+    "Strict students struggled to straighten strange strings.",
+    "Twenty tiny turtles tried to travel through thick thorny thickets.",
+    "The tricky tailor trimmed three twisted trousers with tiny threads.",
+    "The thirty-three thieves thought that they thrilled the throne throughout Thursday."
   ]
 };
+
+export function buildSentenceSet() {
+  const pick = (arr, count) => {
+    return [...arr]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, count);
+  };
+
+  const selected = [
+    ...pick(SENTENCES.easy, 2).map(text => ({
+      text,
+      difficulty: "Easy"
+    })),
+
+    ...pick(SENTENCES.moderate, 2).map(text => ({
+      text,
+      difficulty: "Moderate"
+    })),
+
+    ...pick(SENTENCES.hard, 1).map(text => ({
+      text,
+      difficulty: "Hard"
+    }))
+  ];
+
+  // Randomize the order of the 5 selected sentences
+  return selected.sort(() => Math.random() - 0.5);
+}
 
 export function buildSentenceSet() {
   const pick = (arr, n) => [...arr].sort(() => Math.random() - 0.5).slice(0, n);
