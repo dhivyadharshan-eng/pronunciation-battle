@@ -22,63 +22,125 @@ import {
 
 
 // ============================================================
-// HELPER
+// HELPERS
 // ============================================================
 
-const $ = (id) => document.getElementById(id);
+const $ = (id) =>
+  document.getElementById(id);
 
 
 // ============================================================
-// HOST STATE
+// STATE
 // ============================================================
 
 let activeCode =
-  localStorage.getItem("pbHostCompetition") || "";
+  localStorage.getItem(
+    "pbHostCompetition"
+  ) || "";
 
-let unsubscribe = null;
+let unsubscribe =
+  null;
 
-
-// ============================================================
-// CURRENT TEAMS
-// ============================================================
-
-let currentTeams = [];
+let currentTeams = {};
 
 
 // ============================================================
-// SHOW DASHBOARD
-// ============================================================
-
-function showDashboard() {
-
-  $("loginCard").hidden = true;
-
-  $("dashboard").hidden = false;
-
-  $("logoutBtn").hidden = false;
-
-  if (activeCode) {
-    loadCompetition(activeCode);
-  }
-}
-
-
-// ============================================================
-// SHOW LOGIN
+// SECURITY UI
 // ============================================================
 
 function showLogin() {
 
-  $("loginCard").hidden = false;
+  document.body.classList.remove(
+    "host-loading"
+  );
 
-  $("dashboard").hidden = true;
 
-  $("logoutBtn").hidden = true;
+  $("loginCard").style.display =
+    "block";
+
+
+  $("dashboard").style.display =
+    "none";
+
+
+  $("logoutBtn").style.display =
+    "none";
+
+
+  if ($("createBtn")) {
+
+    $("createBtn").disabled =
+      true;
+
+  }
+
+
+  if ($("refreshBtn")) {
+
+    $("refreshBtn").disabled =
+      true;
+
+  }
+
+
+  if ($("downloadBtn")) {
+
+    $("downloadBtn").disabled =
+      true;
+
+  }
+
+}
+
+
+function showDashboard() {
+
+  document.body.classList.remove(
+    "host-loading"
+  );
+
+
+  $("loginCard").style.display =
+    "none";
+
+
+  $("dashboard").style.display =
+    "block";
+
+
+  $("logoutBtn").style.display =
+    "inline-block";
+
+
+  if ($("createBtn")) {
+
+    $("createBtn").disabled =
+      false;
+
+  }
+
+
+  if ($("refreshBtn")) {
+
+    $("refreshBtn").disabled =
+      false;
+
+  }
+
+
+  if (activeCode) {
+
+    loadCompetition(
+      activeCode
+    );
+
+  }
+
 }
 
 
 // ============================================================
-// HOST LOGIN
+// LOGIN
 // ============================================================
 
 $("loginForm").addEventListener(
@@ -87,28 +149,45 @@ $("loginForm").addEventListener(
 
     event.preventDefault();
 
+
     const email =
       $("email").value.trim();
 
     const password =
       $("password").value;
 
+
     if (!email || !password) {
 
       $("loginMsg").textContent =
-        "Please enter your email and password.";
+        "Enter the host email and password.";
 
       $("loginMsg").className =
         "status error";
 
       return;
+
     }
 
-    $("loginMsg").textContent =
+
+    const loginButton =
+      $("loginBtn");
+
+
+    loginButton.disabled =
+      true;
+
+
+    loginButton.textContent =
       "Signing in…";
+
+
+    $("loginMsg").textContent =
+      "Authenticating…";
 
     $("loginMsg").className =
       "status";
+
 
     try {
 
@@ -118,21 +197,45 @@ $("loginForm").addEventListener(
         password
       );
 
-      $("loginMsg").textContent = "";
+
+      /*
+        IMPORTANT:
+
+        Do NOT manually show the dashboard here.
+
+        onAuthStateChanged() will do it only after
+        Firebase confirms the authenticated user.
+      */
+
+      $("loginMsg").textContent =
+        "";
 
     } catch (error) {
 
       console.error(
-        "Host login error:",
+        "Host login failed:",
         error
       );
 
+
       $("loginMsg").textContent =
-        getAuthErrorMessage(error);
+        getAuthErrorMessage(
+          error
+        );
 
       $("loginMsg").className =
         "status error";
+
+
+      loginButton.disabled =
+        false;
+
+
+      loginButton.textContent =
+        "Sign in";
+
     }
+
   }
 );
 
@@ -141,34 +244,49 @@ $("loginForm").addEventListener(
 // FIREBASE AUTH ERROR MESSAGE
 // ============================================================
 
-function getAuthErrorMessage(error) {
+function getAuthErrorMessage(
+  error
+) {
 
   switch (error?.code) {
 
     case "auth/invalid-credential":
-      return "Invalid email or password.";
+
+      return "Incorrect host email or password.";
+
+    case "auth/invalid-login-credentials":
+
+      return "Incorrect host email or password.";
 
     case "auth/user-not-found":
-      return "No host account was found with this email.";
+
+      return "Incorrect host email or password.";
 
     case "auth/wrong-password":
-      return "Incorrect password.";
+
+      return "Incorrect host email or password.";
 
     case "auth/invalid-email":
+
       return "Please enter a valid email address.";
 
     case "auth/too-many-requests":
+
       return "Too many login attempts. Please try again later.";
 
-    case "auth/network-request-failed":
-      return "Network error. Please check your internet connection.";
+    case "auth/user-disabled":
+
+      return "This host account has been disabled.";
 
     default:
+
       return (
         error?.message ||
-        "Host login failed. Please try again."
+        "Host login failed."
       );
+
   }
+
 }
 
 
@@ -182,22 +300,41 @@ $("logoutBtn").addEventListener(
 
     try {
 
-      await signOut(auth);
-
       if (unsubscribe) {
+
         unsubscribe();
-        unsubscribe = null;
+
+        unsubscribe =
+          null;
+
       }
 
-      currentTeams = [];
+
+      currentTeams =
+        {};
+
+
+      activeCode =
+        "";
+
+
+      localStorage.removeItem(
+        "pbHostCompetition"
+      );
+
+
+      await signOut(auth);
+
 
     } catch (error) {
 
       console.error(
-        "Logout error:",
+        "Logout failed:",
         error
       );
+
     }
+
   }
 );
 
@@ -210,83 +347,97 @@ $("createBtn").addEventListener(
   "click",
   async () => {
 
+    /*
+      Extra security check.
+
+      Even if somebody somehow triggers this function,
+      Firebase must have an authenticated user.
+    */
+
     const user =
       auth.currentUser;
 
+
     if (!user) {
 
-      alert(
-        "Please sign in again."
-      );
+      showLogin();
 
       return;
+
     }
+
 
     try {
 
-      $("createBtn").disabled = true;
+      $("createBtn").disabled =
+        true;
 
-      $("createBtn").textContent =
-        "Creating…";
 
       const code =
         randomCode();
 
-      const competition = {
-
-        code: code,
-
-        active: true,
-
-        createdAt:
-          Date.now(),
-
-        createdBy:
-          user.uid,
-
-        teams: {}
-      };
 
       await set(
+
         ref(
           database,
           `competitions/${code}`
         ),
-        competition
+
+        {
+
+          code,
+
+          active: true,
+
+          createdAt:
+            Date.now(),
+
+          createdBy:
+            user.uid,
+
+          teams: {}
+
+        }
+
       );
+
 
       activeCode =
         code;
+
 
       localStorage.setItem(
         "pbHostCompetition",
         code
       );
 
+
       loadCompetition(
         code
       );
 
+
     } catch (error) {
 
       console.error(
-        "Competition creation error:",
+        "Create competition failed:",
         error
       );
 
+
       alert(
-        error?.message ||
-        "Unable to create competition."
+        error.message
       );
+
 
     } finally {
 
       $("createBtn").disabled =
         false;
 
-      $("createBtn").textContent =
-        "Create Competition";
     }
+
   }
 );
 
@@ -299,13 +450,23 @@ $("refreshBtn").addEventListener(
   "click",
   () => {
 
-    if (!activeCode) {
+    if (!auth.currentUser) {
+
+      showLogin();
+
       return;
+
     }
 
-    loadCompetition(
-      activeCode
-    );
+
+    if (activeCode) {
+
+      loadCompetition(
+        activeCode
+      );
+
+    }
+
   }
 );
 
@@ -314,129 +475,164 @@ $("refreshBtn").addEventListener(
 // LOAD COMPETITION
 // ============================================================
 
-function loadCompetition(code) {
+function loadCompetition(
+  code
+) {
+
+  if (!auth.currentUser) {
+
+    showLogin();
+
+    return;
+
+  }
+
 
   if (!code) {
+
     return;
+
   }
+
 
   if (unsubscribe) {
 
     unsubscribe();
 
-    unsubscribe = null;
+    unsubscribe =
+      null;
+
   }
+
 
   $("code").textContent =
     code;
+
 
   $("activeCode").textContent =
     `Competition: ${code}`;
 
 
-  // ----------------------------------------------------------
-  // Registration URL
-  // ----------------------------------------------------------
+  // ==========================================================
+  // CREATE QR URL
+  // ==========================================================
 
-  const registrationUrl =
-    `${location.origin}${location.pathname.replace(
-      /host\.html$/,
-      "index1.html"
-    )}?code=${encodeURIComponent(code)}`;
+  const joinUrl =
+    new URL(
+      "index.html",
+      window.location.href
+    );
 
 
-  // ----------------------------------------------------------
-  // QR CODE
-  // ----------------------------------------------------------
+  joinUrl.searchParams.set(
+    "code",
+    code
+  );
 
-const joinUrl = new URL("index.html", window.location.href);
-joinUrl.searchParams.set("code", code);
 
-const qrUrl = joinUrl.href;
+  const qrUrl =
+    joinUrl.href;
 
-$("qr").src =
-  `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrUrl)}`;
 
-  // ----------------------------------------------------------
-  // REAL-TIME TEAM LISTENER
-  // ----------------------------------------------------------
+  $("qr").src =
+    `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrUrl)}`;
+
+
+  // ==========================================================
+  // FIREBASE LISTENER
+  // ==========================================================
 
   unsubscribe =
     onValue(
+
       ref(
         database,
         `competitions/${code}/teams`
       ),
+
       (snapshot) => {
 
-        const teams =
-          snapshot.exists()
-            ? snapshot.val()
-            : {};
+        /*
+          If authentication disappeared while the listener
+          is active, immediately hide the dashboard.
+        */
+
+        if (!auth.currentUser) {
+
+          showLogin();
+
+          return;
+
+        }
+
+
+        const raw =
+          snapshot.val() || {};
+
 
         render(
-          teams
+          raw
         );
+
       },
+
       (error) => {
 
         console.error(
-          "Competition listener error:",
+          "Competition listener failed:",
           error
         );
 
-        currentTeams = [];
+        $("loginMsg").textContent =
+          "Unable to access this competition.";
 
-        $("leaderboard").innerHTML =
-          `<tr>
-            <td colspan="9" class="empty">
-              Unable to load teams.
-            </td>
-          </tr>`;
       }
+
     );
+
 }
 
 
 // ============================================================
-// RENDER DASHBOARD
+// RENDER LEADERBOARD
 // ============================================================
 
-function render(rawTeams) {
+function render(
+  raw
+) {
+
+  currentTeams =
+    raw || {};
+
 
   const teams =
     Object.values(
-      rawTeams || {}
+      currentTeams
     ).sort(
       stableCompare
     );
 
-  // Save current teams for CSV export
-  currentTeams = teams;
-
-
-  // ----------------------------------------------------------
-  // STATISTICS
-  // ----------------------------------------------------------
 
   const completed =
     teams.filter(
       team =>
-        team?.status ===
+        team.status ===
         "completed"
     ).length;
+
 
   const inBattle =
     teams.filter(
       team =>
-        team?.status ===
+        team.status ===
         "in-battle"
     ).length;
+
 
   const registered =
     teams.filter(
       team =>
-        team?.status ===
+        team.status ===
         "registered"
     ).length;
 
@@ -444,216 +640,143 @@ function render(rawTeams) {
   $("total").textContent =
     teams.length;
 
+
   $("completed").textContent =
     completed;
 
+
   $("inBattle").textContent =
     inBattle;
+
 
   $("registered").textContent =
     registered;
 
 
-  // ----------------------------------------------------------
-  // EXPORT BUTTON STATUS
-  // ----------------------------------------------------------
-
-  updateExportButton(
-    teams
-  );
-
-
-  // ----------------------------------------------------------
-  // EMPTY LEADERBOARD
-  // ----------------------------------------------------------
-
-  if (!teams.length) {
-
-    $("leaderboard").innerHTML =
-      `<tr>
-        <td colspan="9" class="empty">
-          Waiting for teams…
-        </td>
-      </tr>`;
-
-    return;
-  }
-
-
-  // ----------------------------------------------------------
-  // LEADERBOARD
-  // ----------------------------------------------------------
-
-  $("leaderboard").innerHTML =
-    teams
-      .map(
-        (team, index) => {
-
-          const currentRound =
-            Math.min(
-              Number(
-                team?.currentRound || 0
-              ) +
-              (
-                team?.status ===
-                "completed"
-                  ? 0
-                  : 1
-              ),
-              5
-            );
-
-
-          const score =
-            team?.finalScore == null
-              ? "—"
-              : Number(
-                  team.finalScore
-                ).toFixed(0);
-
-
-          const retries =
-            Number(
-              team?.retriesUsed || 0
-            );
-
-
-          const teamName =
-            escapeHtml(
-              team?.teamName ||
-              "Unnamed Team"
-            );
-
-
-          const teamId =
-            escapeHtml(
-              String(
-                team?.teamId ||
-                ""
-              ).slice(-8)
-            );
-
-
-          const status =
-            escapeHtml(
-              team?.status ||
-              "unknown"
-            );
-
-
-          return `
-            <tr>
-
-              <td>
-                ${index + 1}
-              </td>
-
-              <td>
-                <strong>
-                  ${teamName}
-                </strong>
-
-                <small>
-                  ${teamId}
-                </small>
-              </td>
-
-              <td>
-                <span
-                  class="status-chip ${status}"
-                >
-                  ${status}
-                </span>
-              </td>
-
-              <td>
-                ${currentRound}/5
-              </td>
-
-              <td>
-                ${retries}
-              </td>
-
-              <td>
-                ${score}
-              </td>
-
-              <td>
-                ${escapeHtml(
-                  team?.member1 || "—"
-                )}
-              </td>
-
-              <td>
-                ${escapeHtml(
-                  team?.member2 || "—"
-                )}
-              </td>
-
-              <td>
-                ${escapeHtml(
-                  team?.member3 || "—"
-                )}
-              </td>
-
-            </tr>
-          `;
-        }
-      )
-      .join("");
-}
-
-
-// ============================================================
-// EXPORT BUTTON STATUS
-// ============================================================
-
-function updateExportButton(
-  teams
-) {
-
-  const button =
-    $("downloadCsvBtn");
-
-  if (!button) {
-    return;
-  }
-
-  if (!teams.length) {
-
-    button.disabled = true;
-
-    button.textContent =
-      "📥 Download Leaderboard";
-
-    return;
-  }
-
+  // ==========================================================
+  // ENABLE CSV ONLY WHEN EVERY TEAM HAS COMPLETED
+  // ==========================================================
 
   const allCompleted =
+    teams.length > 0 &&
     teams.every(
       team =>
-        team?.status ===
+        team.status ===
         "completed"
     );
 
 
-  if (allCompleted) {
+  $("downloadBtn").disabled =
+    !allCompleted;
 
-    button.disabled =
-      false;
 
-    button.textContent =
-      "📥 Download Leaderboard CSV";
+  // ==========================================================
+  // TABLE
+  // ==========================================================
 
-  } else {
+  if (teams.length === 0) {
 
-    button.disabled =
-      true;
+    $("leaderboard").innerHTML = `
+      <tr>
+        <td
+          colspan="6"
+          class="empty"
+        >
+          Waiting for teams…
+        </td>
+      </tr>
+    `;
 
-    button.textContent =
-      "🔒 Complete All Teams First";
+    return;
+
   }
+
+
+  $("leaderboard").innerHTML =
+    teams.map(
+      (team, index) => {
+
+        const round =
+          Math.min(
+            Number(
+              team.currentRound || 0
+            ) +
+            (
+              team.status ===
+              "completed"
+                ? 0
+                : 1
+            ),
+            5
+          );
+
+
+        return `
+          <tr>
+
+            <td>
+              ${index + 1}
+            </td>
+
+            <td>
+              <strong>
+                ${escapeHtml(
+                  team.teamName ||
+                  "Team"
+                )}
+              </strong>
+
+              <small>
+                ${escapeHtml(
+                  String(
+                    team.teamId ||
+                    ""
+                  ).slice(-8)
+                )}
+              </small>
+            </td>
+
+            <td>
+              <span
+                class="status-chip ${escapeHtml(
+                  team.status ||
+                  ""
+                )}"
+              >
+                ${escapeHtml(
+                  team.status ||
+                  "unknown"
+                )}
+              </span>
+            </td>
+
+            <td>
+              ${round}/5
+            </td>
+
+            <td>
+              ${Number(
+                team.retriesUsed ||
+                0
+              )}
+            </td>
+
+            <td>
+              ${
+                team.finalScore == null
+                  ? "—"
+                  : Number(
+                      team.finalScore
+                    ).toFixed(0)
+              }
+            </td>
+
+          </tr>
+        `;
+
+      }
+    ).join("");
+
 }
 
 
@@ -661,251 +784,192 @@ function updateExportButton(
 // CSV ESCAPE
 // ============================================================
 
-function csvEscape(value) {
+function csvEscape(
+  value
+) {
 
   const text =
     String(
       value ?? ""
     );
 
-  return `"${text
-    .replace(/"/g, '""')}"`;
+
+  return `"${text.replace(
+    /"/g,
+    '""'
+  )}"`;
+
 }
 
 
 // ============================================================
-// FORMAT DATE
+// DOWNLOAD CSV
 // ============================================================
 
-function formatDate(timestamp) {
+$("downloadBtn").addEventListener(
+  "click",
+  () => {
 
-  if (!timestamp) {
-    return "—";
-  }
+    /*
+      Never allow the download if the host is logged out.
+    */
 
-  const date =
-    new Date(
-      Number(timestamp)
-    );
+    if (!auth.currentUser) {
 
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return "—";
-  }
+      showLogin();
 
-  return date.toLocaleString(
-    "en-IN",
-    {
-      dateStyle: "medium",
-      timeStyle: "medium"
+      return;
+
     }
-  );
-}
 
 
-// ============================================================
-// DOWNLOAD LEADERBOARD CSV
-// ============================================================
-
-function downloadLeaderboardCSV() {
-
-  if (!currentTeams.length) {
-
-    alert(
-      "There are no teams to export."
-    );
-
-    return;
-  }
+    const teams =
+      Object.values(
+        currentTeams
+      ).sort(
+        stableCompare
+      );
 
 
-  // ----------------------------------------------------------
-  // Make sure every team is completed
-  // ----------------------------------------------------------
-
-  const allCompleted =
-    currentTeams.every(
-      team =>
-        team?.status ===
-        "completed"
-    );
-
-
-  if (!allCompleted) {
-
-    alert(
-      "Please wait until all teams have completed the competition."
-    );
-
-    return;
-  }
-
-
-  // ----------------------------------------------------------
-  // CSV HEADER
-  // ----------------------------------------------------------
-
-  const rows = [
-
-    [
-      "Position",
-      "Team Name",
-      "Member 1",
-      "Member 2",
-      "Member 3",
-      "Status",
-      "Rounds",
-      "Retries",
-      "Final Score",
-      "Completed Time"
-    ]
-
-  ];
-
-
-  // ----------------------------------------------------------
-  // CSV DATA
-  // ----------------------------------------------------------
-
-  currentTeams.forEach(
-    (team, index) => {
-
-      rows.push([
-
-        index + 1,
-
-        team?.teamName ||
-          "",
-
-        team?.member1 ||
-          "",
-
-        team?.member2 ||
-          "",
-
-        team?.member3 ||
-          "",
-
-        team?.status ||
-          "",
-
-        "5/5",
-
-        Number(
-          team?.retriesUsed || 0
-        ),
-
-        team?.finalScore == null
-          ? ""
-          : Number(
-              team.finalScore
-            ).toFixed(0),
-
-        formatDate(
-          team?.completedAt
-        )
-
-      ]);
-    }
-  );
-
-
-  // ----------------------------------------------------------
-  // CREATE CSV
-  // ----------------------------------------------------------
-
-  const csv =
-    rows
-      .map(
-        row =>
-          row
-            .map(csvEscape)
-            .join(",")
+    if (
+      teams.length === 0 ||
+      !teams.every(
+        team =>
+          team.status ===
+          "completed"
       )
-      .join("\r\n");
+    ) {
+
+      alert(
+        "The leaderboard can be downloaded after all teams complete the competition."
+      );
+
+      return;
+
+    }
 
 
-  // ----------------------------------------------------------
-  // UTF-8 BOM
-  // Helps Excel display the file correctly
-  // ----------------------------------------------------------
+    const rows = [];
 
-  const blob =
-    new Blob(
-      [
-        "\uFEFF" +
-        csv
-      ],
-      {
-        type:
-          "text/csv;charset=utf-8;"
+
+    rows.push([
+      "Rank",
+      "Team",
+      "Team ID",
+      "Status",
+      "Round",
+      "Retries",
+      "Score",
+      "Completed At"
+    ]);
+
+
+    teams.forEach(
+      (team, index) => {
+
+        rows.push([
+
+          index + 1,
+
+          team.teamName ||
+            "",
+
+          team.teamId ||
+            "",
+
+          team.status ||
+            "",
+
+          "5/5",
+
+          Number(
+            team.retriesUsed ||
+            0
+          ),
+
+          team.finalScore == null
+            ? ""
+            : Number(
+                team.finalScore
+              ),
+
+          team.completedAt
+            ? new Date(
+                team.completedAt
+              ).toLocaleString()
+            : ""
+
+        ]);
+
       }
     );
 
 
-  // ----------------------------------------------------------
-  // FILE NAME
-  // ----------------------------------------------------------
+    const csv =
+      rows
+        .map(
+          row =>
+            row
+              .map(csvEscape)
+              .join(",")
+        )
+        .join("\r\n");
 
-  const safeCode =
-    String(
-      activeCode ||
-      "competition"
-    )
-      .replace(
-        /[^a-zA-Z0-9_-]/g,
-        "_"
+
+    /*
+      UTF-8 BOM helps Excel correctly recognize
+      the CSV file.
+    */
+
+    const blob =
+      new Blob(
+        [
+          "\uFEFF",
+          csv
+        ],
+        {
+          type:
+            "text/csv;charset=utf-8;"
+        }
       );
 
 
-  const fileName =
-    `Polyglot_Leaderboard_${safeCode}.csv`;
+    const url =
+      URL.createObjectURL(
+        blob
+      );
 
 
-  // ----------------------------------------------------------
-  // DOWNLOAD
-  // ----------------------------------------------------------
+    const link =
+      document.createElement(
+        "a"
+      );
 
-  const url =
-    URL.createObjectURL(
-      blob
+
+    link.href =
+      url;
+
+
+    link.download =
+      `polyglot-${activeCode}-leaderboard.csv`;
+
+
+    document.body.appendChild(
+      link
     );
 
-  const link =
-    document.createElement(
-      "a"
+
+    link.click();
+
+
+    link.remove();
+
+
+    URL.revokeObjectURL(
+      url
     );
 
-  link.href =
-    url;
-
-  link.download =
-    fileName;
-
-  document.body.appendChild(
-    link
-  );
-
-  link.click();
-
-  link.remove();
-
-  URL.revokeObjectURL(
-    url
-  );
-}
-
-
-// ============================================================
-// DOWNLOAD BUTTON
-// ============================================================
-
-$("downloadCsvBtn").addEventListener(
-  "click",
-  downloadLeaderboardCSV
+  }
 );
 
 
@@ -917,18 +981,61 @@ onAuthStateChanged(
   auth,
   (user) => {
 
+    console.log(
+      "Host authentication state:",
+      user
+        ? `Authenticated: ${user.email || user.uid}`
+        : "Not authenticated"
+    );
+
+
     if (user) {
 
-      console.log(
-        "Host authenticated:",
-        user.uid
-      );
+      /*
+        Firebase has confirmed authentication.
+        Only NOW do we show the dashboard.
+      */
 
       showDashboard();
 
+
     } else {
 
+      /*
+        No Firebase user.
+        Dashboard must remain inaccessible.
+      */
+
+      if (unsubscribe) {
+
+        unsubscribe();
+
+        unsubscribe =
+          null;
+
+      }
+
+
+      currentTeams =
+        {};
+
+
       showLogin();
+
     }
+
+
+    // Re-enable login button when auth state settles
+
+    if ($("loginBtn")) {
+
+      $("loginBtn").disabled =
+        false;
+
+      $("loginBtn").textContent =
+        "Sign in";
+
+    }
+
   }
 );
