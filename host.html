@@ -11,39 +11,423 @@
 
   <title>Host Control • Polyglot</title>
 
-  <link rel="stylesheet" href="style.css">
+  <link
+    rel="stylesheet"
+    href="style.css"
+  >
 
   <style>
-    /*
-      IMPORTANT:
-      Keep the dashboard hidden until Firebase confirms
-      that the host is authenticated.
-    */
 
-    #dashboard {
-      display: none;
+    /* =====================================================
+       HOST AUTH VISIBILITY
+       ===================================================== */
+
+    #dashboard[hidden],
+    #loginCard[hidden],
+    #logoutBtn[hidden] {
+      display: none !important;
     }
 
-    #logoutBtn {
-      display: none;
+
+    /* =====================================================
+       HOST DASHBOARD
+       ===================================================== */
+
+    .host-shell {
+      width: min(1400px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 60px;
     }
 
-    #loginCard {
+
+    .auth-card {
+      width: min(520px, 100%);
+      margin: 70px auto;
+    }
+
+
+    .host-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+
+    .host-head h1 {
+      margin: 6px 0 8px;
+    }
+
+
+    .host-head p {
+      margin: 0;
+      opacity: .7;
+    }
+
+
+    /* =====================================================
+       COMPETITION CODE
+       ===================================================== */
+
+    .code-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 30px;
+      padding: 26px;
+      margin-bottom: 22px;
+    }
+
+
+    .code-card strong {
       display: block;
+      margin: 8px 0;
+      font-size: 30px;
+      letter-spacing: .08em;
     }
 
-    body.host-loading #loginCard {
-      display: none;
+
+    .code-card small {
+      display: block;
+      opacity: .65;
     }
 
-    body.host-loading #dashboard {
-      display: none;
+
+    #qr {
+      width: 180px;
+      height: 180px;
+      padding: 8px;
+      background: white;
+      border-radius: 12px;
+      object-fit: contain;
     }
+
+
+    /* =====================================================
+       STATS
+       ===================================================== */
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+
+    .stat {
+      padding: 22px;
+    }
+
+
+    .stat span {
+      display: block;
+      font-size: 12px;
+      opacity: .65;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+
+    .stat b {
+      display: block;
+      margin-top: 8px;
+      font-size: 30px;
+    }
+
+
+    /* =====================================================
+       LEADERBOARD CARD
+       ===================================================== */
+
+    .leaderboard-card {
+      padding: 22px;
+      overflow: hidden;
+    }
+
+
+    .leaderboard-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+
+    .leaderboard-head h2 {
+      margin: 0;
+    }
+
+
+    .leaderboard-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+
+    .leaderboard-actions button {
+      width: auto;
+      margin: 0;
+      white-space: nowrap;
+    }
+
+
+    /* =====================================================
+       TABLE
+       ===================================================== */
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+
+    .leaderboard-table {
+      width: 100%;
+      min-width: 1000px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+
+    .leaderboard-table th,
+    .leaderboard-table td {
+      padding: 15px 12px;
+      border-bottom:
+        1px solid rgba(255,255,255,.08);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+
+    .leaderboard-table th {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      opacity: .65;
+      white-space: nowrap;
+    }
+
+
+    .leaderboard-table tbody tr {
+      transition: background .2s ease;
+    }
+
+
+    .leaderboard-table tbody tr:hover {
+      background: rgba(255,255,255,.035);
+    }
+
+
+    /* Column widths */
+
+    .leaderboard-table th:nth-child(1),
+    .leaderboard-table td:nth-child(1) {
+      width: 50px;
+    }
+
+
+    .leaderboard-table th:nth-child(2),
+    .leaderboard-table td:nth-child(2) {
+      width: 170px;
+    }
+
+
+    .leaderboard-table th:nth-child(3),
+    .leaderboard-table td:nth-child(3) {
+      width: 190px;
+    }
+
+
+    .leaderboard-table th:nth-child(4),
+    .leaderboard-table td:nth-child(4) {
+      width: 120px;
+    }
+
+
+    .leaderboard-table th:nth-child(5),
+    .leaderboard-table td:nth-child(5) {
+      width: 80px;
+    }
+
+
+    .leaderboard-table th:nth-child(6),
+    .leaderboard-table td:nth-child(6) {
+      width: 90px;
+    }
+
+
+    .leaderboard-table th:nth-child(7),
+    .leaderboard-table td:nth-child(7) {
+      width: 80px;
+    }
+
+
+    .leaderboard-table th:nth-child(8),
+    .leaderboard-table td:nth-child(8) {
+      width: 180px;
+    }
+
+
+    /* Team */
+
+    .team-cell strong {
+      display: block;
+      font-size: 14px;
+    }
+
+
+    .team-cell small {
+      display: block;
+      margin-top: 4px;
+      font-size: 10px;
+      opacity: .45;
+    }
+
+
+    /* Members */
+
+    .members-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+
+    .members-cell span {
+      display: block;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+
+    /* Numbers */
+
+    .rank-cell {
+      font-weight: 700;
+    }
+
+
+    .center-cell {
+      text-align: center !important;
+      font-weight: 600;
+    }
+
+
+    .score-cell {
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+
+    .completed-cell {
+      font-size: 11px;
+      opacity: .7;
+    }
+
+
+    /* Empty */
+
+    .empty {
+      padding: 40px !important;
+      text-align: center !important;
+      opacity: .55;
+    }
+
+
+    /* =====================================================
+       BUTTONS
+       ===================================================== */
+
+    #refreshBtn,
+    #downloadBtn {
+      width: auto;
+      margin: 0;
+      white-space: nowrap;
+    }
+
+
+    #downloadBtn:disabled {
+      opacity: .4;
+      cursor: not-allowed;
+    }
+
+
+    /* =====================================================
+       MOBILE
+       ===================================================== */
+
+    @media (max-width: 800px) {
+
+      .host-shell {
+        width: min(
+          100% - 20px,
+          1400px
+        );
+      }
+
+
+      .host-head {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+
+      .code-card {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+
+      .stats-grid {
+        grid-template-columns:
+          repeat(2, minmax(0, 1fr));
+      }
+
+
+      .leaderboard-head {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+
+      .leaderboard-actions {
+        width: 100%;
+      }
+
+
+      .leaderboard-actions button {
+        flex: 1;
+      }
+
+    }
+
+
+    @media (max-width: 480px) {
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+
+      #qr {
+        width: 150px;
+        height: 150px;
+      }
+
+    }
+
   </style>
 </head>
 
 
-<body class="host-loading">
+<body>
 
   <!-- =====================================================
        HEADER
@@ -51,7 +435,11 @@
 
   <header class="topbar">
 
-    <a class="brand" href="#">
+    <a
+      class="brand"
+      href="#"
+    >
+
       <img
         src="assets/polyglot-logo.jpg"
         alt="Polyglot"
@@ -59,8 +447,11 @@
 
       <span>
         POLYGLOT
-        <small>HOST CONTROL CENTER</small>
+        <small>
+          HOST CONTROL CENTER
+        </small>
       </span>
+
     </a>
 
 
@@ -68,11 +459,13 @@
       id="logoutBtn"
       class="ghost"
       type="button"
+      hidden
     >
       Sign out
     </button>
 
   </header>
+
 
 
   <!-- =====================================================
@@ -95,7 +488,11 @@
         HOST AUTHENTICATION
       </span>
 
-      <h1>Host Login</h1>
+
+      <h1>
+        Host Login
+      </h1>
+
 
       <p>
         Only the authorized host can access
@@ -144,13 +541,16 @@
 
 
     <!-- ===================================================
-         HOST DASHBOARD
+         DASHBOARD
          =================================================== -->
 
-    <section id="dashboard">
+    <section
+      id="dashboard"
+      hidden
+    >
 
 
-      <!-- HEADER -->
+      <!-- DASHBOARD HEADER -->
 
       <div class="host-head">
 
@@ -160,9 +560,11 @@
             CONTROL CENTER
           </span>
 
+
           <h1>
             Competition Dashboard
           </h1>
+
 
           <p id="activeCode">
             No competition
@@ -171,17 +573,13 @@
         </div>
 
 
-        <div>
-
-          <button
-            id="createBtn"
-            class="primary"
-            type="button"
-          >
-            ＋ Create Competition
-          </button>
-
-        </div>
+        <button
+          id="createBtn"
+          class="primary"
+          type="button"
+        >
+          ＋ Create Competition
+        </button>
 
       </div>
 
@@ -199,9 +597,11 @@
             ACTIVE COMPETITION
           </span>
 
+
           <strong id="code">
             —
           </strong>
+
 
           <small>
             Share this code or QR with participants.
@@ -212,6 +612,7 @@
 
         <img
           id="qr"
+          src=""
           alt="Competition QR code"
         >
 
@@ -224,6 +625,7 @@
            ================================================= -->
 
       <div class="stats-grid">
+
 
         <div class="glass-card stat">
 
@@ -284,36 +686,119 @@
            LEADERBOARD
            ================================================= -->
 
-      <div class="table-wrap">
+      <div class="glass-card leaderboard-card">
 
-  <table class="leaderboard-table">
 
-    <thead>
-      <tr>
-        <th class="rank-col">#</th>
-        <th>Team</th>
-        <th>Members</th>
-        <th>Status</th>
-        <th>Round</th>
-        <th>Retries</th>
-        <th>Score</th>
-        <th>Completed</th>
-      </tr>
-    </thead>
+        <div class="leaderboard-head">
 
-    <tbody id="leaderboard">
+          <div>
 
-      <tr>
-        <td colspan="8" class="empty">
-          Waiting for teams…
-        </td>
-      </tr>
+            <span class="eyebrow">
+              LIVE RESULTS
+            </span>
 
-    </tbody>
+            <h2>
+              Live Leaderboard
+            </h2>
 
-  </table>
+          </div>
 
-</div>
+
+          <div class="leaderboard-actions">
+
+            <button
+              id="refreshBtn"
+              class="ghost"
+              type="button"
+            >
+              Refresh
+            </button>
+
+
+            <button
+              id="downloadBtn"
+              class="ghost"
+              type="button"
+              disabled
+            >
+              Download Leaderboard CSV
+            </button>
+
+          </div>
+
+        </div>
+
+
+
+        <div class="table-wrap">
+
+          <table class="leaderboard-table">
+
+            <thead>
+
+              <tr>
+
+                <th>#</th>
+
+                <th>
+                  Team
+                </th>
+
+                <th>
+                  Members
+                </th>
+
+                <th>
+                  Status
+                </th>
+
+                <th>
+                  Round
+                </th>
+
+                <th>
+                  Retries
+                </th>
+
+                <th>
+                  Score
+                </th>
+
+                <th>
+                  Completed
+                </th>
+
+              </tr>
+
+            </thead>
+
+
+            <tbody id="leaderboard">
+
+              <tr>
+
+                <td
+                  colspan="8"
+                  class="empty"
+                >
+                  Waiting for teams…
+                </td>
+
+              </tr>
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
 
   <!-- =====================================================
        HOST JAVASCRIPT
