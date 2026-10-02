@@ -597,61 +597,220 @@ function loadCompetition(
 // RENDER LEADERBOARD
 // ============================================================
 
-function render(
-  raw
-) {
+function render(raw) {
 
-  currentTeams =
-    raw || {};
+  currentTeams = raw || {};
+
+  const teams = Object.values(currentTeams)
+    .sort(stableCompare);
 
 
-  const teams =
-    Object.values(
-      currentTeams
-    ).sort(
-      stableCompare
+  const completed = teams.filter(
+    team => team.status === "completed"
+  ).length;
+
+
+  const inBattle = teams.filter(
+    team => team.status === "in-battle"
+  ).length;
+
+
+  const registered = teams.filter(
+    team => team.status === "registered"
+  ).length;
+
+
+  $("total").textContent = teams.length;
+
+  $("completed").textContent = completed;
+
+  $("inBattle").textContent = inBattle;
+
+  $("registered").textContent = registered;
+
+
+  // ==========================================================
+  // ENABLE DOWNLOAD ONLY WHEN ALL TEAMS ARE COMPLETE
+  // ==========================================================
+
+  const allCompleted =
+    teams.length > 0 &&
+    teams.every(
+      team => team.status === "completed"
     );
 
 
-  const completed =
-    teams.filter(
-      team =>
-        team.status ===
-        "completed"
-    ).length;
+  $("downloadBtn").disabled =
+    !allCompleted;
 
 
-  const inBattle =
-    teams.filter(
-      team =>
-        team.status ===
-        "in-battle"
-    ).length;
+  // ==========================================================
+  // EMPTY STATE
+  // ==========================================================
+
+  if (teams.length === 0) {
+
+    $("leaderboard").innerHTML = `
+      <tr>
+        <td colspan="8" class="empty">
+          Waiting for teams…
+        </td>
+      </tr>
+    `;
+
+    return;
+  }
 
 
-  const registered =
-    teams.filter(
-      team =>
-        team.status ===
-        "registered"
-    ).length;
+  // ==========================================================
+  // TABLE
+  // ==========================================================
+
+  $("leaderboard").innerHTML = teams.map(
+    (team, index) => {
+
+      const round = Math.min(
+        Number(team.currentRound || 0) +
+        (
+          team.status === "completed"
+            ? 0
+            : 1
+        ),
+        5
+      );
 
 
-  $("total").textContent =
-    teams.length;
+      const member1 =
+        team.member1 || "—";
+
+      const member2 =
+        team.member2 || "—";
+
+      const member3 =
+        team.member3 || "—";
 
 
-  $("completed").textContent =
-    completed;
+      const completedAt =
+        team.completedAt
+          ? new Date(
+              team.completedAt
+            ).toLocaleString()
+          : "—";
 
 
-  $("inBattle").textContent =
-    inBattle;
+      return `
+        <tr>
+
+          <!-- RANK -->
+          <td class="rank-cell">
+            ${index + 1}
+          </td>
 
 
-  $("registered").textContent =
-    registered;
+          <!-- TEAM -->
+          <td class="team-cell">
 
+            <strong>
+              ${escapeHtml(
+                team.teamName || "Team"
+              )}
+            </strong>
+
+            <small>
+              ${escapeHtml(
+                String(
+                  team.teamId || ""
+                ).slice(-8)
+              )}
+            </small>
+
+          </td>
+
+
+          <!-- MEMBERS -->
+          <td class="members-cell">
+
+            <span>
+              ${escapeHtml(member1)}
+            </span>
+
+            <span>
+              ${escapeHtml(member2)}
+            </span>
+
+            <span>
+              ${escapeHtml(member3)}
+            </span>
+
+          </td>
+
+
+          <!-- STATUS -->
+          <td>
+
+            <span
+              class="status-chip ${escapeHtml(
+                team.status || ""
+              )}"
+            >
+              ${escapeHtml(
+                team.status || "unknown"
+              )}
+            </span>
+
+          </td>
+
+
+          <!-- ROUND -->
+          <td class="center-cell">
+            ${round}/5
+          </td>
+
+
+          <!-- RETRIES -->
+          <td class="center-cell">
+            ${Number(
+              team.retriesUsed || 0
+            )}
+          </td>
+
+
+          <!-- SCORE -->
+          <td class="score-cell">
+
+            ${
+              team.finalScore == null
+                ? "—"
+                : Number(
+                    team.finalScore
+                  ).toFixed(0)
+            }
+
+          </td>
+
+
+          <!-- COMPLETED -->
+          <td class="completed-cell">
+
+            ${
+              team.completedAt
+                ? escapeHtml(
+                    new Date(
+                      team.completedAt
+                    ).toLocaleString()
+                  )
+                : "—"
+            }
+
+          </td>
+
+        </tr>
+      `;
+
+    }
+  ).join("");
+
+}
 
   // ==========================================================
   // ENABLE CSV ONLY WHEN EVERY TEAM HAS COMPLETED
