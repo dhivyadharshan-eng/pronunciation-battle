@@ -284,91 +284,36 @@
            LEADERBOARD
            ================================================= -->
 
-      <div class="glass-card table-card">
+      <div class="table-wrap">
 
-        <div class="table-head">
+  <table class="leaderboard-table">
 
-          <h2>
-            Live Leaderboard
-          </h2>
+    <thead>
+      <tr>
+        <th class="rank-col">#</th>
+        <th>Team</th>
+        <th>Members</th>
+        <th>Status</th>
+        <th>Round</th>
+        <th>Retries</th>
+        <th>Score</th>
+        <th>Completed</th>
+      </tr>
+    </thead>
 
+    <tbody id="leaderboard">
 
-          <div>
+      <tr>
+        <td colspan="8" class="empty">
+          Waiting for teams…
+        </td>
+      </tr>
 
-            <button
-              id="refreshBtn"
-              class="ghost"
-              type="button"
-            >
-              Refresh
-            </button>
+    </tbody>
 
+  </table>
 
-            <button
-              id="downloadBtn"
-              class="ghost"
-              type="button"
-              disabled
-            >
-              Download CSV
-            </button>
-
-          </div>
-
-        </div>
-
-
-        <div class="table-wrap">
-
-          <table>
-
-            <thead>
-
-              <tr>
-
-                <th>#</th>
-
-                <th>Team</th>
-
-                <th>Status</th>
-
-                <th>Round</th>
-
-                <th>Retries</th>
-
-                <th>Score</th>
-
-              </tr>
-
-            </thead>
-
-
-            <tbody id="leaderboard">
-
-              <tr>
-
-                <td
-                  colspan="6"
-                  class="empty"
-                >
-                  Waiting for teams…
-
-                </td>
-
-              </tr>
-
-            </tbody>
-
-          </table>
-
-        </div>
-
-      </div>
-
-    </section>
-
-  </main>
-
+</div>
 
   <!-- =====================================================
        HOST JAVASCRIPT
