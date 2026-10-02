@@ -2,531 +2,382 @@
 <html lang="en">
 
 <head>
-
   <meta charset="utf-8">
 
   <meta
     name="viewport"
-    content="width=device-width,initial-scale=1"
+    content="width=device-width, initial-scale=1"
   >
 
   <title>Host Control • Polyglot</title>
 
-  <link
-    rel="stylesheet"
-    href="style.css"
-  >
+  <link rel="stylesheet" href="style.css">
 
+  <style>
+    /*
+      IMPORTANT:
+      Keep the dashboard hidden until Firebase confirms
+      that the host is authenticated.
+    */
+
+    #dashboard {
+      display: none;
+    }
+
+    #logoutBtn {
+      display: none;
+    }
+
+    #loginCard {
+      display: block;
+    }
+
+    body.host-loading #loginCard {
+      display: none;
+    }
+
+    body.host-loading #dashboard {
+      display: none;
+    }
+  </style>
 </head>
 
 
-<body>
+<body class="host-loading">
 
+  <!-- =====================================================
+       HEADER
+       ===================================================== -->
 
-<!-- ============================================================
-     TOP BAR
-============================================================ -->
+  <header class="topbar">
 
-<header class="topbar">
+    <a class="brand" href="#">
+      <img
+        src="assets/polyglot-logo.jpg"
+        alt="Polyglot"
+      >
 
-  <a
-    class="brand"
-    href="#"
-  >
-
-    <img
-      src="assets/polyglot-logo.jpg"
-      alt="Polyglot Logo"
-    >
-
-    <span>
-      POLYGLOT
-
-      <small>
-        HOST CONTROL CENTER
-      </small>
-
-    </span>
-
-  </a>
-
-
-  <button
-    id="logoutBtn"
-    class="ghost"
-    hidden
-  >
-    Sign out
-  </button>
-
-</header>
-
-
-
-<!-- ============================================================
-     MAIN
-============================================================ -->
-
-<main class="host-shell">
-
-
-<!-- ============================================================
-     HOST LOGIN
-============================================================ -->
-
-<section
-  id="loginCard"
-  class="glass-card auth-card"
->
-
-  <span class="eyebrow">
-    HOST AUTHENTICATION
-  </span>
-
-
-  <h1>
-    Host Login
-  </h1>
-
-
-  <p>
-    Only the authenticated host can create
-    competitions and manage the dashboard.
-  </p>
-
-
-  <form id="loginForm">
-
-
-    <input
-      id="email"
-      type="email"
-      placeholder="Host email"
-      autocomplete="email"
-      required
-    >
-
-
-    <input
-      id="password"
-      type="password"
-      placeholder="Password"
-      autocomplete="current-password"
-      required
-    >
+      <span>
+        POLYGLOT
+        <small>HOST CONTROL CENTER</small>
+      </span>
+    </a>
 
 
     <button
-      type="submit"
-      class="primary"
-    >
-      Sign in
-    </button>
-
-
-    <p
-      id="loginMsg"
-      class="status"
-    ></p>
-
-
-  </form>
-
-</section>
-
-
-
-<!-- ============================================================
-     HOST DASHBOARD
-============================================================ -->
-
-<section
-  id="dashboard"
-  hidden
->
-
-
-<!-- ============================================================
-     DASHBOARD HEADER
-============================================================ -->
-
-<div class="host-head">
-
-
-  <div>
-
-    <span class="eyebrow">
-      CONTROL CENTER
-    </span>
-
-
-    <h1>
-      Competition Dashboard
-    </h1>
-
-
-    <p id="activeCode">
-      No competition
-    </p>
-
-  </div>
-
-
-
-  <button
-    id="createBtn"
-    class="primary"
-    type="button"
-  >
-    ＋ Create Competition
-  </button>
-
-
-</div>
-
-
-
-<!-- ============================================================
-     ACTIVE COMPETITION / QR
-============================================================ -->
-
-<div class="glass-card code-card">
-
-
-  <div>
-
-    <span class="muted">
-      ACTIVE COMPETITION
-    </span>
-
-
-    <strong id="code">
-      —
-    </strong>
-
-
-    <small>
-      Share this code or QR with participants.
-    </small>
-
-
-  </div>
-
-
-  <img
-    id="qr"
-    src=""
-    alt="Competition QR Code"
-  >
-
-
-</div>
-
-
-
-<!-- ============================================================
-     STATISTICS
-============================================================ -->
-
-<div class="stats-grid">
-
-
-  <div class="glass-card stat">
-
-    <span>
-      Total teams
-    </span>
-
-    <b id="total">
-      0
-    </b>
-
-  </div>
-
-
-
-  <div class="glass-card stat">
-
-    <span>
-      Completed
-    </span>
-
-    <b id="completed">
-      0
-    </b>
-
-  </div>
-
-
-
-  <div class="glass-card stat">
-
-    <span>
-      In battle
-    </span>
-
-    <b id="inBattle">
-      0
-    </b>
-
-  </div>
-
-
-
-  <div class="glass-card stat">
-
-    <span>
-      Registered
-    </span>
-
-    <b id="registered">
-      0
-    </b>
-
-  </div>
-
-
-</div>
-
-
-
-<!-- ============================================================
-     LEADERBOARD
-============================================================ -->
-
-<div class="glass-card table-card">
-
-
-  <div class="table-head">
-
-
-    <div>
-
-      <h2>
-        Live Leaderboard
-      </h2>
-
-      <p
-        id="leaderboardStatus"
-        class="muted"
-      >
-        Waiting for teams…
-      </p>
-
-    </div>
-
-
-
-    <div class="table-actions">
-
-
-      <button
-        id="refreshBtn"
-        class="ghost"
-        type="button"
-      >
-        Refresh
-      </button>
-
-
-      <!-- CSV EXPORT -->
-
-      <button
-        id="downloadCsvBtn"
-        class="ghost"
-        type="button"
-        disabled
-      >
-        ↓ Download CSV
-      </button>
-
-
-      <!-- EXCEL EXPORT -->
-
-      <button
-        id="downloadExcelBtn"
-        class="primary"
-        type="button"
-        disabled
-      >
-        ↓ Download Excel
-      </button>
-
-
-    </div>
-
-
-  </div>
-
-
-
-  <div class="table-wrap">
-
-
-    <table>
-
-
-      <thead>
-
-        <tr>
-
-          <th>
-            #
-          </th>
-
-
-          <th>
-            Team
-          </th>
-
-
-          <th>
-            Members
-          </th>
-
-
-          <th>
-            Status
-          </th>
-
-
-          <th>
-            Round
-          </th>
-
-
-          <th>
-            Retries
-          </th>
-
-
-          <th>
-            Score
-          </th>
-
-
-          <th>
-            Completed
-          </th>
-
-        </tr>
-
-      </thead>
-
-
-
-      <tbody id="leaderboard">
-
-
-        <tr>
-
-          <td
-            colspan="8"
-            class="empty"
-          >
-            Waiting for teams…
-
-          </td>
-
-        </tr>
-
-
-      </tbody>
-
-
-    </table>
-
-
-  </div>
-
-
-</div>
-
-
-
-<!-- ============================================================
-     EXPORT INFORMATION
-============================================================ -->
-
-<div
-  id="exportMessage"
-  class="status"
-  aria-live="polite"
-></div>
-
-
-
-<!-- ============================================================
-     COMPETITION COMPLETION PANEL
-============================================================ -->
-
-<div
-  id="competitionComplete"
-  class="glass-card"
-  hidden
->
-
-
-  <span class="eyebrow">
-    COMPETITION COMPLETE
-  </span>
-
-
-  <h2>
-    All teams have finished
-  </h2>
-
-
-  <p>
-    The final leaderboard is ready.
-    Download the results as a CSV file or
-    Excel-compatible spreadsheet.
-  </p>
-
-
-  <div class="table-actions">
-
-
-    <button
-      id="finalCsvBtn"
+      id="logoutBtn"
       class="ghost"
       type="button"
     >
-      ↓ Download Final CSV
+      Sign out
     </button>
 
+  </header>
 
-    <button
-      id="finalExcelBtn"
-      class="primary"
-      type="button"
+
+  <!-- =====================================================
+       MAIN
+       ===================================================== -->
+
+  <main class="host-shell">
+
+
+    <!-- ===================================================
+         LOGIN
+         =================================================== -->
+
+    <section
+      id="loginCard"
+      class="glass-card auth-card"
     >
-      ↓ Download Final Excel
-    </button>
+
+      <span class="eyebrow">
+        HOST AUTHENTICATION
+      </span>
+
+      <h1>Host Login</h1>
+
+      <p>
+        Only the authorized host can access
+        the competition control center.
+      </p>
 
 
-  </div>
+      <form id="loginForm">
+
+        <input
+          id="email"
+          type="email"
+          placeholder="Host email"
+          autocomplete="username"
+          required
+        >
 
 
-</div>
+        <input
+          id="password"
+          type="password"
+          placeholder="Password"
+          autocomplete="current-password"
+          required
+        >
 
 
-</section>
+        <button
+          id="loginBtn"
+          class="primary"
+          type="submit"
+        >
+          Sign in
+        </button>
 
 
-</main>
+        <p
+          id="loginMsg"
+          class="status"
+        ></p>
+
+      </form>
+
+    </section>
 
 
 
-<!-- ============================================================
-     HOST JAVASCRIPT
-============================================================ -->
+    <!-- ===================================================
+         HOST DASHBOARD
+         =================================================== -->
 
-<script
-  type="module"
-  src="js/host.js"
-></script>
+    <section id="dashboard">
 
+
+      <!-- HEADER -->
+
+      <div class="host-head">
+
+        <div>
+
+          <span class="eyebrow">
+            CONTROL CENTER
+          </span>
+
+          <h1>
+            Competition Dashboard
+          </h1>
+
+          <p id="activeCode">
+            No competition
+          </p>
+
+        </div>
+
+
+        <div>
+
+          <button
+            id="createBtn"
+            class="primary"
+            type="button"
+          >
+            ＋ Create Competition
+          </button>
+
+        </div>
+
+      </div>
+
+
+
+      <!-- =================================================
+           COMPETITION CODE
+           ================================================= -->
+
+      <div class="glass-card code-card">
+
+        <div>
+
+          <span class="muted">
+            ACTIVE COMPETITION
+          </span>
+
+          <strong id="code">
+            —
+          </strong>
+
+          <small>
+            Share this code or QR with participants.
+          </small>
+
+        </div>
+
+
+        <img
+          id="qr"
+          alt="Competition QR code"
+        >
+
+      </div>
+
+
+
+      <!-- =================================================
+           STATS
+           ================================================= -->
+
+      <div class="stats-grid">
+
+        <div class="glass-card stat">
+
+          <span>
+            Total teams
+          </span>
+
+          <b id="total">
+            0
+          </b>
+
+        </div>
+
+
+        <div class="glass-card stat">
+
+          <span>
+            Completed
+          </span>
+
+          <b id="completed">
+            0
+          </b>
+
+        </div>
+
+
+        <div class="glass-card stat">
+
+          <span>
+            In battle
+          </span>
+
+          <b id="inBattle">
+            0
+          </b>
+
+        </div>
+
+
+        <div class="glass-card stat">
+
+          <span>
+            Registered
+          </span>
+
+          <b id="registered">
+            0
+          </b>
+
+        </div>
+
+      </div>
+
+
+
+      <!-- =================================================
+           LEADERBOARD
+           ================================================= -->
+
+      <div class="glass-card table-card">
+
+        <div class="table-head">
+
+          <h2>
+            Live Leaderboard
+          </h2>
+
+
+          <div>
+
+            <button
+              id="refreshBtn"
+              class="ghost"
+              type="button"
+            >
+              Refresh
+            </button>
+
+
+            <button
+              id="downloadBtn"
+              class="ghost"
+              type="button"
+              disabled
+            >
+              Download CSV
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <div class="table-wrap">
+
+          <table>
+
+            <thead>
+
+              <tr>
+
+                <th>#</th>
+
+                <th>Team</th>
+
+                <th>Status</th>
+
+                <th>Round</th>
+
+                <th>Retries</th>
+
+                <th>Score</th>
+
+              </tr>
+
+            </thead>
+
+
+            <tbody id="leaderboard">
+
+              <tr>
+
+                <td
+                  colspan="6"
+                  class="empty"
+                >
+                  Waiting for teams…
+
+                </td>
+
+              </tr>
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- =====================================================
+       HOST JAVASCRIPT
+       ===================================================== -->
+
+  <script
+    type="module"
+    src="js/host.js"
+  ></script>
 
 </body>
 
