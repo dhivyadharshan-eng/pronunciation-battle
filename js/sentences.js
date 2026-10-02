@@ -1,4 +1,14 @@
+// ============================================================
+// POLYGLOT PRONUNCIATION BATTLE
+// sentences.js
+// ============================================================
+
 export const SENTENCES = {
+
+  // ==========================================================
+  // EASY — 10
+  // ==========================================================
+
   easy: [
     "Maya made many mango muffins.",
     "Seven silver stars shine softly.",
@@ -11,6 +21,11 @@ export const SENTENCES = {
     "Clean clocks click clearly.",
     "Happy hippos hop home."
   ],
+
+
+  // ==========================================================
+  // MODERATE — 10
+  // ==========================================================
 
   moderate: [
     "Charlie chose a cheerful cherry chair.",
@@ -25,6 +40,11 @@ export const SENTENCES = {
     "Bright blue birds boldly brought brown bread."
   ],
 
+
+  // ==========================================================
+  // HARD — 10
+  // ==========================================================
+
   hard: [
     "Thirty thirsty thinkers thoroughly thought through three tricky theories.",
     "Seven sneaky squirrels swiftly switched shiny shoes.",
@@ -37,37 +57,57 @@ export const SENTENCES = {
     "The tricky tailor trimmed three twisted trousers with tiny threads.",
     "The thirty-three thieves thought that they thrilled the throne throughout Thursday."
   ]
+
 };
 
+
+// ============================================================
+// RANDOM PICK
+// ============================================================
+
+function pickRandom(array, count) {
+
+  return [...array]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, count);
+
+}
+
+
+// ============================================================
+// BUILD 5 SENTENCES
+//
+// 2 Easy
+// 2 Moderate
+// 1 Hard
+// ============================================================
+
 export function buildSentenceSet() {
-  const pick = (arr, count) => {
-    return [...arr]
-      .sort(() => Math.random() - 0.5)
-      .slice(0, count);
-  };
 
   const selected = [
-    ...pick(SENTENCES.easy, 2).map(text => ({
+
+    ...pickRandom(SENTENCES.easy, 2).map(text => ({
       text,
       difficulty: "Easy"
     })),
 
-    ...pick(SENTENCES.moderate, 2).map(text => ({
+    ...pickRandom(SENTENCES.moderate, 2).map(text => ({
       text,
       difficulty: "Moderate"
     })),
 
-    ...pick(SENTENCES.hard, 1).map(text => ({
+    ...pickRandom(SENTENCES.hard, 1).map(text => ({
       text,
       difficulty: "Hard"
     }))
+
   ];
 
-  // Randomize the order of the 5 selected sentences
-  return selected.sort(() => Math.random() - 0.5);
-}
 
-export function buildSentenceSet() {
-  const pick = (arr, n) => [...arr].sort(() => Math.random() - 0.5).slice(0, n);
-  return [...pick(SENTENCES.easy, 2).map(text => ({text, difficulty:"Easy"})), ...pick(SENTENCES.moderate, 2).map(text => ({text, difficulty:"Moderate"})), ...pick(SENTENCES.hard, 1).map(text => ({text, difficulty:"Hard"}))].sort(() => Math.random() - 0.5);
+  // Randomize the order of all 5 rounds
+
+  return selected.sort(
+    () => Math.random() - 0.5
+  );
+
 }
